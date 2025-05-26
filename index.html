@@ -735,9 +735,12 @@
                 isTextColorHexSuggestedOrInvalidForDisplay = false;
             } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'matte black') {
                 textColorHexForDisplay = '#28282B';
-                isTextColorHexSuggestedOrInvalidForDisplay = true; // Always red as it's an override
+                isTextColorHexSuggestedOrInvalidForDisplay = true; 
+            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'soft pink') {
+                textColorHexForDisplay = '#FFB8BF';
+                isTextColorHexSuggestedOrInvalidForDisplay = true;
             }
-            else { // For other colors
+            else {
                 const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
                 const mapHex = canonicalOcrColorName ? commonColorHexMap[canonicalOcrColorName] : null;
 
@@ -769,6 +772,9 @@
                     isOutlineColorHexSuggestedOrInvalidForDisplay = true;
                 } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte black') {
                     outlineColorHexForDisplay = '#28282B';
+                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
+                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'soft pink') {
+                    outlineColorHexForDisplay = '#FFB8BF';
                     isOutlineColorHexSuggestedOrInvalidForDisplay = true;
                 }
                 else {
@@ -842,7 +848,8 @@
                     if (isTextColorHexSuggestedOrInvalidForDisplay && textColorHexForDisplay === "N/A" && 
                         displayTextColorDescriptiveClean?.toLowerCase() !== 'black' && 
                         displayTextColorDescriptiveClean?.toLowerCase() !== 'white' &&
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'matte black'
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'soft pink'
                         ) fieldsWithIssues.push("Text Hex Code");
                 }
                 if (outlineLabelPresentInInput) {
@@ -850,7 +857,8 @@
                      if (isOutlineColorHexSuggestedOrInvalidForDisplay && outlineColorHexForDisplay === "N/A" && 
                          displayOutlineColorDescriptiveClean?.toLowerCase() !== 'black' && 
                          displayOutlineColorDescriptiveClean?.toLowerCase() !== 'white' &&
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'matte black'
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'soft pink'
                          ) fieldsWithIssues.push("Outline Hex Code");
                 }
                 const hasLength = currentProcessedData.size && currentProcessedData.size.includes(" L");
