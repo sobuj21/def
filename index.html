@@ -247,7 +247,7 @@
             'dark red': '#8B0000', 'alabama crimson': '#AF002A', 'pink': '#FFC0CB', 'matte pink': '#EC407A', 
             'glossy pink': '#FF35B8', 'metallic pink': '#AD1457', 'light pink': '#FFB6C1', 'hot pink': '#FF69B4', 
             'deep pink': '#FF1493', 'medium violet red': '#C71585', 'pale violet red': '#DB7093', 
-            'soft pink': '#E89EB8', 'coral': '#FF7F50', 'tomato': '#FF6347', 'orange red': '#FF4500', 
+            'soft pink': '#FFB8BF', 'coral': '#FF7F50', 'tomato': '#FF6347', 'orange red': '#FF4500', 
             'dark orange': '#FF8C00', 'orange': '#FFA500', 'matte orange': '#F57C00', 'metallic orange': '#E65100', 
             'gold': '#FFD700', 'yellow': '#FFFF00', 'matte yellow': '#FBC02D', 'metallic yellow': '#F9A825', 
             'light yellow': '#FFFFE0', 'lemon chiffon': '#FFFACD', 'papaya whip': '#FFEFD5', 'moccasin': '#FFE4B5', 
@@ -436,28 +436,23 @@
 
         function extractHexCode(text) {
             if (!text) return null;
-            // Regex to find hex codes like #FFF, #FFFFFF, #fff, #ffffff
-            // It will also find things like #5d2 if they are at a word boundary
             const hexRegex = /#([A-Fa-f0-9]{1,6})\b/g; 
             let potentialHex = null;
             let match;
-            // Find all potential hexes and take the longest valid-looking one
-            // This helps if OCR gives something like "#5d2 c68"
             while((match = hexRegex.exec(text)) !== null) {
                 let currentMatch = match[0];
-                // Attempt to correct common OCR errors for hex characters
                 currentMatch = '#' + currentMatch.substring(1)
                                 .replace(/¢/g, 'c')
                                 .replace(/\$/g, 's')
-                                .replace(/g/gi, '6') // common OCR error g for 6
-                                .replace(/o/gi, '0') // common OCR error o for 0
-                                .replace(/i|l/gi, '1'); // common OCR error i or l for 1
-                if (isValidHex(currentMatch)) { // isValidHex checks for # + 3 or 6 valid hex chars
+                                .replace(/g/gi, '6') 
+                                .replace(/o/gi, '0') 
+                                .replace(/i|l/gi, '1'); 
+                if (isValidHex(currentMatch)) { 
                     if (!potentialHex || currentMatch.length > potentialHex.length) {
                         potentialHex = currentMatch;
                     }
-                } else if (!potentialHex && currentMatch.length > 1) { // If not valid, but looks like a partial hex, store it
-                    potentialHex = currentMatch;
+                } else if (!potentialHex && currentMatch.length > 1 && currentMatch.startsWith('#')) { 
+                    potentialHex = currentMatch; 
                 }
             }
             return potentialHex;
@@ -738,7 +733,11 @@
             } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'black') {
                 textColorHexForDisplay = null; 
                 isTextColorHexSuggestedOrInvalidForDisplay = false;
-            } else {
+            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'matte black') {
+                textColorHexForDisplay = '#28282B';
+                isTextColorHexSuggestedOrInvalidForDisplay = true; // Always red as it's an override
+            }
+            else { // For other colors
                 const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
                 const mapHex = canonicalOcrColorName ? commonColorHexMap[canonicalOcrColorName] : null;
 
@@ -768,7 +767,11 @@
                 } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'white') {
                     outlineColorHexForDisplay = '#E6E9E9';
                     isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                } else {
+                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte black') {
+                    outlineColorHexForDisplay = '#28282B';
+                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
+                }
+                else {
                     const canonicalOcrOutlineColorName = getCanonicalColorName(displayOutlineColorDescriptiveClean);
                     const mapOutlineHex = canonicalOcrOutlineColorName ? commonColorHexMap[canonicalOcrOutlineColorName] : null;
 
@@ -836,11 +839,19 @@
                 }
                 if (currentProcessedData.originalInputText.toLowerCase().includes("text color:") || currentProcessedData.originalInputText.toLowerCase().includes("colors:")) {
                     if (!displayTextColorDescriptiveClean) fieldsWithIssues.push("Text Color Name");
-                    if (isTextColorHexSuggestedOrInvalidForDisplay && textColorHexForDisplay === "N/A" && displayTextColorDescriptiveClean?.toLowerCase() !== 'black' && displayTextColorDescriptiveClean?.toLowerCase() !== 'white') fieldsWithIssues.push("Text Hex Code");
+                    if (isTextColorHexSuggestedOrInvalidForDisplay && textColorHexForDisplay === "N/A" && 
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'black' && 
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'white' &&
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'matte black'
+                        ) fieldsWithIssues.push("Text Hex Code");
                 }
                 if (outlineLabelPresentInInput) {
                      if (!displayOutlineColorDescriptiveClean) fieldsWithIssues.push("Outline Color Name");
-                     if (isOutlineColorHexSuggestedOrInvalidForDisplay && outlineColorHexForDisplay === "N/A" && displayOutlineColorDescriptiveClean?.toLowerCase() !== 'black' && displayOutlineColorDescriptiveClean?.toLowerCase() !== 'white') fieldsWithIssues.push("Outline Hex Code");
+                     if (isOutlineColorHexSuggestedOrInvalidForDisplay && outlineColorHexForDisplay === "N/A" && 
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'black' && 
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'white' &&
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'matte black'
+                         ) fieldsWithIssues.push("Outline Hex Code");
                 }
                 const hasLength = currentProcessedData.size && currentProcessedData.size.includes(" L");
                 const hasHeight = currentProcessedData.size && currentProcessedData.size.includes(" H");
