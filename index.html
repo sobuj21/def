@@ -295,6 +295,32 @@
             'glossy cream': '#FFFDD0', 'light brown': '#C4A484', 'gold metallic': '#D4AF37',
             'glossy sky blue': '#87CEEB', 'glossy light blue': '#87C1FF', 'electric bright sky blue': '#56DEFF'
         };
+        
+        const knownColorKeywords = new Set();
+
+        function initializeKnownColorKeywords() {
+            const basicColorWords = [
+                'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'violet', 'pink', 'brown', 'black', 'white', 'gray', 'grey', 
+                'cyan', 'magenta', 'teal', 'lime', 'olive', 'maroon', 'navy', 'aqua', 'fuchsia', 'silver', 'gold', 'khaki', 
+                'coral', 'salmon', 'ivory', 'beige', 'azure', 'indigo', 'plum', 'orchid', 'thistle', 'sienna', 'peru', 'tan', 'wheat',
+                'cream', 'amber', 'bronze', 'copper', 'charcoal', 'cobalt', 'coffee', 'emerald', 'jade', 'lavender', 'lemon', 
+                'lilac', 'mustard', 'ochre', 'peach', 'pearl', 'rose', 'ruby', 'sapphire', 'scarlet', 'taupe', 'turquoise', 'ultramarine', 'vermilion', 'viridian'
+            ];
+            const modifiers = [
+                'light', 'dark', 'deep', 'pale', 'medium', 'bright', 'soft', 'hot', 'sky', 'sea', 'spring', 'forest', 'electric', 
+                'metallic', 'matte', 'glossy', 'powder', 'drab', 'chiffon', 'crimson', 'royal', 'slate', 'steel', 'smoke',
+                'ish', 'color'
+            ];
+            basicColorWords.forEach(word => knownColorKeywords.add(word));
+            modifiers.forEach(word => knownColorKeywords.add(word));
+
+            Object.keys(commonColorHexMap).forEach(key => {
+                key.toLowerCase().split(/[\s-]+/).forEach(word => { 
+                    if (word) knownColorKeywords.add(word.replace(/[^a-z0-9]/g, '')); 
+                });
+            });
+        }
+        initializeKnownColorKeywords();
 
 
         function isValidHex(hex) {
@@ -481,17 +507,22 @@
             let cleaned = String(colorName);
 
             cleaned = cleaned.replace(/\s*\([^)]*\)?\s*/g, ' '); 
-            cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]*/gi, ' '); 
+            cleaned = cleaned.replace(/\s*\[[^\]]*\]?\s*/g, ' '); 
+            cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]+/gi, ' '); 
             
             cleaned = cleaned.replace(/([a-zA-Z]+)(\d+)/g, '$1 $2'); 
             cleaned = cleaned.replace(/(\d+)([a-zA-Z]+)/g, '$1 $2'); 
 
-            cleaned = cleaned.split(/\s+/).filter(word => {
-                 return !/^\d+$/.test(word); 
-            }).join(" ");
+            cleaned = cleaned.split(/\s+/)
+                .map(word => word.toLowerCase().replace(/[^a-z0-9-]/g, '')) // Clean each word
+                .filter(word => word && knownColorKeywords.has(word)) // Keep only known words
+                .join(" ");
             
-            cleaned = cleaned.replace(/[^a-zA-Z\s-]/g, ''); 
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
+            
+            if (cleaned) {
+              cleaned = cleaned.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
             return cleaned;
         }
 
@@ -747,10 +778,10 @@
                 textColorHexForDisplay = '#FFB8BF';
                 isTextColorHexSuggestedOrInvalidForDisplay = true;
             } else {
-                if (isValidHex(ocrTextColorHex)) {
+                if (isValidHex(ocrTextColorHex)) { // Prioritize valid OCR hex
                     textColorHexForDisplay = ocrTextColorHex;
-                    isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; // Mark 3-digit as needing review
-                } else {
+                    isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; // Mark 3-char as needing review
+                } else { // OCR hex is invalid or missing, try database lookup
                     const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
                     let mapHex = null; 
                     if (canonicalOcrColorName) {
@@ -761,7 +792,7 @@
                             }
                         }
                     }
-                    if (mapHex) {
+                    if (mapHex) { 
                         textColorHexForDisplay = mapHex;
                         isTextColorHexSuggestedOrInvalidForDisplay = true; // Suggested from map, so mark as review
                     } else {
@@ -807,7 +838,7 @@
                         }
                         if (mapOutlineHex) {
                             outlineColorHexForDisplay = mapOutlineHex;
-                            isOutlineColorHexSuggestedOrInvalidForDisplay = true; // Suggested from map
+                            isOutlineColorHexSuggestedOrInvalidForDisplay = true; 
                         } else {
                             outlineColorHexForDisplay = "N/A";
                             isOutlineColorHexSuggestedOrInvalidForDisplay = true;
