@@ -333,54 +333,53 @@
                 showMessage('Nothing to copy.', true);
                 return;
             }
-
             const originalButtonClasses = buttonElement.className;
             const originalText = buttonElement.textContent;
 
             buttonElement.textContent = 'Copied!';
             buttonElement.className = 'copy-btn copied'; 
+            let copiedSuccessfully = false;
 
             if (navigator.clipboard && window.isSecureContext) {
                 try {
                     await navigator.clipboard.writeText(text);
-                    if (buttonElement.timeoutId) clearTimeout(buttonElement.timeoutId);
-                    buttonElement.timeoutId = setTimeout(() => {
-                        buttonElement.textContent = originalText;
-                        buttonElement.className = originalButtonClasses; 
-                        buttonElement.timeoutId = null;
-                    }, 1500);
-                    return;
+                    copiedSuccessfully = true;
                 } catch (err) {
-                    console.error('Clipboard API failed: ', err);
-                    showMessage('Could not copy using Clipboard API. Trying fallback.', true, 3000);
+                    console.info('Clipboard API (navigator.clipboard.writeText) failed, attempting fallback. Error:', err.name, err.message);
                 }
             }
 
-            try {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "-9999px";
-                document.body.appendChild(textArea);
-                textArea.focus(); textArea.select();
-                const successful = document.execCommand('copy');
-                document.body.removeChild(textArea);
+            if (!copiedSuccessfully) {
+                try {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus(); textArea.select();
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
 
-                if (successful) {
-                    if (buttonElement.timeoutId) clearTimeout(buttonElement.timeoutId);
-                    buttonElement.timeoutId = setTimeout(() => {
-                        buttonElement.textContent = originalText;
-                        buttonElement.className = originalButtonClasses; 
-                        buttonElement.timeoutId = null;
-                    }, 1500);
-                    showMessage('Text copied (using fallback).');
-                } else {
-                    throw new Error('Fallback copy command failed.');
+                    if (successful) {
+                        copiedSuccessfully = true;
+                    } else {
+                        throw new Error('Fallback copy command (document.execCommand) failed.');
+                    }
+                } catch (err) {
+                    console.error('Fallback copy failed: ', err);
+                    showMessage('Failed to copy text. Clipboard access might be blocked.', true, 4000);
+                    buttonElement.textContent = originalText;
+                    buttonElement.className = originalButtonClasses;
+                    return; 
                 }
-            } catch (err) {
-                console.error('Fallback copy failed: ', err);
-                showMessage('Failed to copy text. Clipboard access might be blocked.', true, 4000);
-                buttonElement.textContent = originalText;
-                buttonElement.className = originalButtonClasses; 
+            }
+
+            if (copiedSuccessfully) {
+                if (buttonElement.timeoutId) clearTimeout(buttonElement.timeoutId);
+                buttonElement.timeoutId = setTimeout(() => {
+                    buttonElement.textContent = originalText;
+                    buttonElement.className = originalButtonClasses; 
+                    buttonElement.timeoutId = null;
+                }, 1500);
             }
         }
 
@@ -465,7 +464,7 @@
             cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]*/gi, ' '); 
             cleaned = cleaned.replace(/([a-zA-Z])(\d)/g, '$1 $2'); 
             cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, '$1 $2'); 
-            cleaned = cleaned.split(/\s+/).filter(word => !/^\d+$/.test(word) || word.length > 2).join(" "); // Allow multi-digit numbers if part of a name like "RAL 7035"
+            cleaned = cleaned.split(/\s+/).filter(word => !/^\d+$/.test(word) || word.length > 2).join(" ");
             cleaned = cleaned.replace(/[^a-zA-Z0-9\s-]/g, ''); 
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
             return cleaned;
