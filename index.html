@@ -292,7 +292,7 @@
             'silver gray metallic': '#8A92A6', 'dim gray': '#696969', 'lavender gray': '#C3C5C9', 
             'light slate gray': '#778899', 'slate gray': '#708090', 'dark slate gray': '#2F4F4F', 
             'black': '#000000', 'matte black': '#28282B', 'velvet black': '#171717', 'metallic black': '#424242',
-            'glossy cream': '#FFFDD0', 'light brown': '#C4A484', 'gold metallic': '#D4AF37'
+            'glossy cream': '#FFFDD0', 'light brown': '#C4A484', 'gold metallic': '#D4AF37', 'matte gold': '#D2BF37'
         };
 
 
@@ -467,9 +467,8 @@
 
             let descriptivePart = workingString;
             if (extractedHex) {
-                // More robustly remove the hex and surrounding non-alphanumeric, non-space, non-hyphen chars
                 const hexPatternForRemoval = new RegExp(`\\s*\\(?\\s*${extractedHex.replace('#', '\\#')}\\s*\\)?`, 'gi');
-                descriptivePart = descriptivePart.replace(hexPatternForRemoval, '').trim();
+                descriptivePart = descriptivePart.replace(hexPatternForRemoval, ' ').trim();
             }
             descriptivePart = cleanColorNameForDisplay(descriptivePart);
             
@@ -478,12 +477,19 @@
         
         function cleanColorNameForDisplay(colorName) {
             if (!colorName) return "";
-            let cleaned = colorName.replace(/\s*\([^)]*\)\s*/g, ' '); 
+            let cleaned = String(colorName);
+
+            cleaned = cleaned.replace(/\s*\([^)]*\)?\s*/g, ' '); 
             cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]*/gi, ' '); 
-            cleaned = cleaned.replace(/([a-zA-Z])(\d)/g, '$1 $2'); 
-            cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, '$1 $2'); 
-            cleaned = cleaned.split(/\s+/).filter(word => !/^\d+$/.test(word) || word.length > 2).join(" ");
-            cleaned = cleaned.replace(/[^a-zA-Z0-9\s-]/g, ''); 
+            
+            cleaned = cleaned.replace(/([a-zA-Z]+)(\d+)/g, '$1 $2'); 
+            cleaned = cleaned.replace(/(\d+)([a-zA-Z]+)/g, '$1 $2'); 
+
+            cleaned = cleaned.split(/\s+/).filter(word => {
+                 return !/^\d+$/.test(word); 
+            }).join(" ");
+            
+            cleaned = cleaned.replace(/[^a-zA-Z\s-]/g, ''); 
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
             return cleaned;
         }
@@ -739,14 +745,21 @@
             } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'soft pink') {
                 textColorHexForDisplay = '#FFB8BF';
                 isTextColorHexSuggestedOrInvalidForDisplay = true;
-            }
-            else {
+            } else {
                 const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
-                const mapHex = canonicalOcrColorName ? commonColorHexMap[canonicalOcrColorName] : null;
+                let mapHex = null; 
+                if (canonicalOcrColorName) {
+                    for (const mapKey in commonColorHexMap) {
+                        if (getCanonicalColorName(mapKey) === canonicalOcrColorName) {
+                            mapHex = commonColorHexMap[mapKey];
+                            break; 
+                        }
+                    }
+                }
 
                 if (mapHex) { 
                     textColorHexForDisplay = mapHex;
-                    isTextColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrTextColorHex) || (ocrTextColorHex && ocrTextColorHex.toUpperCase() !== mapHex.toUpperCase());
+                    isTextColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrTextColorHex) || (ocrTextColorHex && isValidHex(ocrTextColorHex) && ocrTextColorHex.toUpperCase() !== mapHex.toUpperCase());
                 } else { 
                     if (isValidHex(ocrTextColorHex)) {
                         textColorHexForDisplay = ocrTextColorHex;
@@ -779,11 +792,19 @@
                 }
                 else {
                     const canonicalOcrOutlineColorName = getCanonicalColorName(displayOutlineColorDescriptiveClean);
-                    const mapOutlineHex = canonicalOcrOutlineColorName ? commonColorHexMap[canonicalOcrOutlineColorName] : null;
+                    let mapOutlineHex = null; 
+                     if (canonicalOcrOutlineColorName) {
+                        for (const mapKey in commonColorHexMap) {
+                           if (getCanonicalColorName(mapKey) === canonicalOcrOutlineColorName) {
+                                mapOutlineHex = commonColorHexMap[mapKey];
+                                break;
+                            }
+                        }
+                    }
 
                     if (mapOutlineHex) {
                         outlineColorHexForDisplay = mapOutlineHex;
-                        isOutlineColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrOutlineColorHex) || (ocrOutlineColorHex && ocrOutlineColorHex.toUpperCase() !== mapOutlineHex.toUpperCase());
+                        isOutlineColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrOutlineColorHex) || (ocrOutlineColorHex && isValidHex(ocrOutlineColorHex) && ocrOutlineColorHex.toUpperCase() !== mapOutlineHex.toUpperCase());
                     } else {
                         if (isValidHex(ocrOutlineColorHex)) {
                             outlineColorHexForDisplay = ocrOutlineColorHex;
