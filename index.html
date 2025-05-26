@@ -436,9 +436,31 @@
 
         function extractHexCode(text) {
             if (!text) return null;
-            const hexRegex = /#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/;
-            const match = text.match(hexRegex);
-            return match ? match[0] : null;
+            // Regex to find hex codes like #FFF, #FFFFFF, #fff, #ffffff
+            // It will also find things like #5d2 if they are at a word boundary
+            const hexRegex = /#([A-Fa-f0-9]{1,6})\b/g; 
+            let potentialHex = null;
+            let match;
+            // Find all potential hexes and take the longest valid-looking one
+            // This helps if OCR gives something like "#5d2 c68"
+            while((match = hexRegex.exec(text)) !== null) {
+                let currentMatch = match[0];
+                // Attempt to correct common OCR errors for hex characters
+                currentMatch = '#' + currentMatch.substring(1)
+                                .replace(/¢/g, 'c')
+                                .replace(/\$/g, 's')
+                                .replace(/g/gi, '6') // common OCR error g for 6
+                                .replace(/o/gi, '0') // common OCR error o for 0
+                                .replace(/i|l/gi, '1'); // common OCR error i or l for 1
+                if (isValidHex(currentMatch)) { // isValidHex checks for # + 3 or 6 valid hex chars
+                    if (!potentialHex || currentMatch.length > potentialHex.length) {
+                        potentialHex = currentMatch;
+                    }
+                } else if (!potentialHex && currentMatch.length > 1) { // If not valid, but looks like a partial hex, store it
+                    potentialHex = currentMatch;
+                }
+            }
+            return potentialHex;
         }
 
         function parseColorValue(colorValue) {
@@ -450,6 +472,7 @@
 
             let descriptivePart = workingString;
             if (extractedHex) {
+                // More robustly remove the hex and surrounding non-alphanumeric, non-space, non-hyphen chars
                 const hexPatternForRemoval = new RegExp(`\\s*\\(?\\s*${extractedHex.replace('#', '\\#')}\\s*\\)?`, 'gi');
                 descriptivePart = descriptivePart.replace(hexPatternForRemoval, '').trim();
             }
