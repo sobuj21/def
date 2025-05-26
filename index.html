@@ -445,18 +445,27 @@
         function parseColorValue(colorValue) {
             if (!colorValue) return { descriptive: null, hex: null };
             const ignorePattern = /^(?:Please\s+)?(?:ignore|ingnore)\s+this\s+color(?:\s+and(?:\s+select(?:\s+(?:fron|front|from))?)?)?.*$/i;
-            let cleanedValue = colorValue.replace(ignorePattern, '').trim();
+            let workingString = colorValue.replace(ignorePattern, '').trim();
             
-            const hex = extractHexCode(cleanedValue);
-            let descriptive = cleanedValue; 
+            const extractedHex = extractHexCode(workingString); 
+
+            let descriptivePart = workingString;
+            if (extractedHex) {
+                const hexPatternForRemoval = new RegExp(`\\s*\\(?\\s*${extractedHex.replace('#', '\\#')}\\s*\\)?`, 'gi');
+                descriptivePart = descriptivePart.replace(hexPatternForRemoval, '').trim();
+            }
+            descriptivePart = cleanColorNameForDisplay(descriptivePart);
             
-            return { descriptive: descriptive || null, hex: hex };
+            return { descriptive: descriptivePart || null, hex: extractedHex }; 
         }
         
         function cleanColorNameForDisplay(colorName) {
             if (!colorName) return "";
-            let cleaned = colorName.replace(/\s*\([^)]*\)\s*/g, ''); 
-            cleaned = cleaned.replace(/#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/gi, ''); 
+            let cleaned = colorName.replace(/\s*\([^)]*\)\s*/g, ' '); 
+            cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]*/gi, ' '); 
+            cleaned = cleaned.replace(/([a-zA-Z])(\d)/g, '$1 $2'); 
+            cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, '$1 $2'); 
+            cleaned = cleaned.split(/\s+/).filter(word => !/^\d+$/.test(word) || word.length > 2).join(" "); // Allow multi-digit numbers if part of a name like "RAL 7035"
             cleaned = cleaned.replace(/[^a-zA-Z0-9\s-]/g, ''); 
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
             return cleaned;
@@ -698,59 +707,66 @@
             let displayTextColorDescriptiveClean = cleanColorNameForDisplay(currentProcessedData.textColorDescriptive);
             let displayOutlineColorDescriptiveClean = cleanColorNameForDisplay(currentProcessedData.outlineColorDescriptive);
             
-            let textColorHexForDisplay = currentProcessedData.textColorHex;
+            let textColorHexForDisplay = null; 
+            let ocrTextColorHex = currentProcessedData.textColorHex; 
+
             if (displayTextColorDescriptiveClean?.toLowerCase() === 'white') {
                 textColorHexForDisplay = '#E6E9E9';
                 isTextColorHexSuggestedOrInvalidForDisplay = true;
             } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'black') {
                 textColorHexForDisplay = null; 
                 isTextColorHexSuggestedOrInvalidForDisplay = false;
-            }
-            else if (!isValidHex(textColorHexForDisplay)) {
+            } else {
                 const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
-                let foundMatch = false;
-                if (canonicalOcrColorName) {
-                    for (const mapKey in commonColorHexMap) {
-                        if (getCanonicalColorName(mapKey) === canonicalOcrColorName) {
-                            textColorHexForDisplay = commonColorHexMap[mapKey];
-                            foundMatch = true;
-                            break;
-                        }
+                const mapHex = canonicalOcrColorName ? commonColorHexMap[canonicalOcrColorName] : null;
+
+                if (mapHex) { 
+                    textColorHexForDisplay = mapHex;
+                    isTextColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrTextColorHex) || (ocrTextColorHex && ocrTextColorHex.toUpperCase() !== mapHex.toUpperCase());
+                } else { 
+                    if (isValidHex(ocrTextColorHex)) {
+                        textColorHexForDisplay = ocrTextColorHex;
+                        isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; 
+                    } else {
+                        textColorHexForDisplay = "N/A";
+                        isTextColorHexSuggestedOrInvalidForDisplay = true;
                     }
                 }
-                if (!foundMatch) textColorHexForDisplay = "N/A";
-                isTextColorHexSuggestedOrInvalidForDisplay = true;
             }
 
 
-            let outlineColorHexForDisplay = currentProcessedData.outlineColorHex;
+            let outlineColorHexForDisplay = null; 
+            let ocrOutlineColorHex = currentProcessedData.outlineColorHex;
             const outlineLabelPresentInInput = currentProcessedData.originalInputText.toLowerCase().includes("text outline color:") || currentProcessedData.originalInputText.toLowerCase().includes("outline colors:");
-             if (outlineLabelPresentInInput || (currentProcessedData.outlineColorDescriptive && currentProcessedData.outlineColorDescriptive.trim() !== "") || (currentProcessedData.outlineColorHex && currentProcessedData.outlineColorHex.trim() !== "")) {
+            
+            if (outlineLabelPresentInInput || (currentProcessedData.outlineColorDescriptive && currentProcessedData.outlineColorDescriptive.trim() !== "") || (currentProcessedData.outlineColorHex && currentProcessedData.outlineColorHex.trim() !== "")) {
                 if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'black') {
                     outlineColorHexForDisplay = null; 
                     isOutlineColorHexSuggestedOrInvalidForDisplay = false;
                 } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'white') {
                     outlineColorHexForDisplay = '#E6E9E9';
                     isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                }
-                 else if (!isValidHex(outlineColorHexForDisplay)) {
+                } else {
                     const canonicalOcrOutlineColorName = getCanonicalColorName(displayOutlineColorDescriptiveClean);
-                    let foundOutlineMatch = false;
-                    if (canonicalOcrOutlineColorName) {
-                        for (const mapKey in commonColorHexMap) {
-                           if (getCanonicalColorName(mapKey) === canonicalOcrOutlineColorName) {
-                                outlineColorHexForDisplay = commonColorHexMap[mapKey];
-                                foundOutlineMatch = true;
-                                break;
-                            }
+                    const mapOutlineHex = canonicalOcrOutlineColorName ? commonColorHexMap[canonicalOcrOutlineColorName] : null;
+
+                    if (mapOutlineHex) {
+                        outlineColorHexForDisplay = mapOutlineHex;
+                        isOutlineColorHexSuggestedOrInvalidForDisplay = !isValidHex(ocrOutlineColorHex) || (ocrOutlineColorHex && ocrOutlineColorHex.toUpperCase() !== mapOutlineHex.toUpperCase());
+                    } else {
+                        if (isValidHex(ocrOutlineColorHex)) {
+                            outlineColorHexForDisplay = ocrOutlineColorHex;
+                            isOutlineColorHexSuggestedOrInvalidForDisplay = ocrOutlineColorHex.length === 4;
+                        } else {
+                            outlineColorHexForDisplay = "N/A";
+                            isOutlineColorHexSuggestedOrInvalidForDisplay = true;
                         }
                     }
-                    if (!foundOutlineMatch) outlineColorHexForDisplay = "N/A";
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
                 }
             } else {
                 displayOutlineColorDescriptiveClean = null; 
                 outlineColorHexForDisplay = null;
+                isOutlineColorHexSuggestedOrInvalidForDisplay = false;
             }
 
 
