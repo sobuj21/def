@@ -256,7 +256,7 @@
             'lime': '#00FF00', 'matte lime': '#AFB42B', 'metallic lime': '#827717', 'lime green': '#32CD32', 
             'lime-tree green': '#7CBF4E', 'pale green': '#98FB98', 'light green': '#90EE90', 
             'medium spring green': '#00FA9A', 'spring green': '#00FF7F', 'medium sea green': '#3CB371', 
-            'sea green': '#2E8B57', 'forest green': '#228B22', 'green': '#008000', 'matte green': '#48A14D', 
+            'sea green': '#2E8B57', 'forest green': '#228B22', 'green': '#00BF00', 'matte green': '#48A14D', 
             'metallic green': '#1B5E20', 'dark green': '#006400', 'yellow green': '#9ACD32', 'olive drab': '#6B8E23', 
             'olive': '#808000', 'dark olive green': '#556B2F', 'dark sea green': '#8FBC8F', 'light sea green': '#20B2AA', 
             'dark cyan': '#008B8B', 'teal': '#008080', 'acid green': '#B0BF1A', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 
@@ -309,7 +309,7 @@
             const modifiers = [
                 'light', 'dark', 'deep', 'pale', 'medium', 'bright', 'soft', 'hot', 'sky', 'sea', 'spring', 'forest', 'electric', 
                 'metallic', 'matte', 'glossy', 'powder', 'drab', 'chiffon', 'crimson', 'royal', 'slate', 'steel', 'smoke',
-                'ish', 'color'
+                'ish', 'color' 
             ];
             basicColorWords.forEach(word => knownColorKeywords.add(word));
             modifiers.forEach(word => knownColorKeywords.add(word));
@@ -514,8 +514,8 @@
             cleaned = cleaned.replace(/(\d+)([a-zA-Z]+)/g, '$1 $2'); 
 
             cleaned = cleaned.split(/\s+/)
-                .map(word => word.toLowerCase().replace(/[^a-z0-9-]/g, '')) // Clean each word
-                .filter(word => word && knownColorKeywords.has(word)) // Keep only known words
+                .map(word => word.toLowerCase().replace(/[^a-z0-9-]/g, '')) 
+                .filter(word => word && knownColorKeywords.has(word)) 
                 .join(" ");
             
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
@@ -778,10 +778,10 @@
                 textColorHexForDisplay = '#FFB8BF';
                 isTextColorHexSuggestedOrInvalidForDisplay = true;
             } else {
-                if (isValidHex(ocrTextColorHex)) { // Prioritize valid OCR hex
+                 if (isValidHex(ocrTextColorHex)) { 
                     textColorHexForDisplay = ocrTextColorHex;
-                    isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; // Mark 3-char as needing review
-                } else { // OCR hex is invalid or missing, try database lookup
+                    isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; 
+                } else {
                     const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
                     let mapHex = null; 
                     if (canonicalOcrColorName) {
@@ -794,7 +794,7 @@
                     }
                     if (mapHex) { 
                         textColorHexForDisplay = mapHex;
-                        isTextColorHexSuggestedOrInvalidForDisplay = true; // Suggested from map, so mark as review
+                        isTextColorHexSuggestedOrInvalidForDisplay = true; 
                     } else {
                         textColorHexForDisplay = "N/A";
                         isTextColorHexSuggestedOrInvalidForDisplay = true;
@@ -822,7 +822,7 @@
                     isOutlineColorHexSuggestedOrInvalidForDisplay = true;
                 }
                 else {
-                    if (isValidHex(ocrOutlineColorHex)) {
+                     if (isValidHex(ocrOutlineColorHex)) {
                         outlineColorHexForDisplay = ocrOutlineColorHex;
                         isOutlineColorHexSuggestedOrInvalidForDisplay = ocrOutlineColorHex.length === 4;
                     } else {
