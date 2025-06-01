@@ -283,7 +283,7 @@
             'peru': '#CD853F', 'chocolate': '#D2691E', 'saddle brown': '#8B4513', 'sienna': '#A0522D', 
             'brown': '#A52A2A', 'matte brown': '#5D4037', 'metallic copper': '#D1793B', 'metallic brown': '#3E2723', 
             'maroon': '#800000', 'zinnwaldite brown': '#2C1608', 'white': '#E6E9E9', 'matte white': '#E6E9E9', 
-            'metallic white': '#ECEFF1', 'snow': '#FFFAFA', 'honey dew': '#F0FFF0', 'mint cream': '#F5FFFA', 
+            'metallic white': '#ECEFF1', 'snow': '#FFFAFA', 'honey dew': '#F0FFF0', 'mint cream': '#F5FFFA', 'mint': '#3EB489',
             'azure': '#F0FFFF', 'alice blue': '#F0F8FF', 'ghost white': '#F8F8FF', 'white smoke': '#F5F5F5', 
             'sea shell': '#FFF5EE', 'beige': '#F5F5DC', 'old lace': '#FDF5E6', 'floral white': '#FFFAF0', 
             'ivory': '#FFFFF0', 'antique white': '#FAEBD7', 'linen': '#FAF0E6', 'lavender blush': '#FFF0F5', 
@@ -304,7 +304,8 @@
                 'cyan', 'magenta', 'teal', 'lime', 'olive', 'maroon', 'navy', 'aqua', 'fuchsia', 'silver', 'gold', 'khaki', 
                 'coral', 'salmon', 'ivory', 'beige', 'azure', 'indigo', 'plum', 'orchid', 'thistle', 'sienna', 'peru', 'tan', 'wheat',
                 'cream', 'amber', 'bronze', 'copper', 'charcoal', 'cobalt', 'coffee', 'emerald', 'jade', 'lavender', 'lemon', 
-                'lilac', 'mustard', 'ochre', 'peach', 'pearl', 'rose', 'ruby', 'sapphire', 'scarlet', 'taupe', 'turquoise', 'ultramarine', 'vermilion', 'viridian'
+                'lilac', 'mustard', 'ochre', 'peach', 'pearl', 'rose', 'ruby', 'sapphire', 'scarlet', 'taupe', 'turquoise', 'ultramarine', 'vermilion', 'viridian',
+                'mint'
             ];
             const modifiers = [
                 'light', 'dark', 'deep', 'pale', 'medium', 'bright', 'soft', 'hot', 'sky', 'sea', 'spring', 'forest', 'electric', 
@@ -512,14 +513,14 @@
             
             cleaned = cleaned.replace(/([a-zA-Z]+)(\d+)/g, '$1 $2'); 
             cleaned = cleaned.replace(/(\d+)([a-zA-Z]+)/g, '$1 $2'); 
-            
+
             let words = cleaned.split(/\s+/);
             let significantWords = [];
             for (const word of words) {
                 if (!word) continue;
-                const lowerWord = word.toLowerCase().replace(/[^a-z0-9-]/g, ''); // Clean individual word for map check
+                const lowerWord = word.toLowerCase().replace(/[^a-z0-9-]/g, ''); 
                 if (knownColorKeywords.has(lowerWord)) {
-                    significantWords.push(word.replace(/[^a-zA-Z0-9-]/g, '')); // Add original form of the word, but cleaned of most symbols
+                    significantWords.push(word.replace(/[^a-zA-Z0-9-]/g, '')); 
                 } else if (word.includes('-')) {
                     const parts = word.split('-');
                     if (parts.every(p => knownColorKeywords.has(p.toLowerCase().replace(/[^a-z0-9]/g, '')) || p === "" )) {
