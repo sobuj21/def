@@ -263,7 +263,7 @@
             'matte cyan': '#00ACC1', 'metallic cyan': '#00838F', 'light cyan': '#E0FFFF', 'pale turquoise': '#AFEEEE', 
             'aquamarine': '#7FFFD4', 'turquoise': '#40E0D0', 'medium turquoise': '#48D1CC', 'dark turquoise': '#00CED1', 
             'zomp': '#39A78E', 'cadet blue': '#5F9EA0', 'steel blue': '#4682B4', 'light steel blue': '#B0C4DE', 
-            'powder blue': '#B0E0E6', 'light blue': '#ADD8E6', 'sky blue': '#87CEEB', 'light sky blue': '#87CEFA', 
+            'powder blue': '#B0E0E6', 'light blue': '#ADD8E6', 'sky blue': '#87CEEB', 'light sky blue': '#87CEFA', 'matte sky blue': '#7AAEC4',
             'deep sky blue': '#00BFFF', 'dodger blue': '#1E90FF', 'cornflower blue': '#6495ED', 'matte turquoise': '#5FBDB1', 
             'medium slate blue': '#7B68EE', 'king blue': '#152A78', 'royal blue': '#4169E1', 'blue': '#0000FF', 
             'deep sea blue': '#015482', 'deep sea blue color': '#256794', 'matte blue': '#1976D2', 'metallic blue': '#0D47A1', 'medium blue': '#0000CD', 
@@ -781,7 +781,6 @@
             let textColorHexForDisplay = null; 
             let ocrTextColorHex = currentProcessedData.textColorHex; 
 
-            // Apply special color rules first
             if (displayTextColorDescriptiveClean?.toLowerCase() === 'white') {
                 textColorHexForDisplay = '#E6E9E9';
                 isTextColorHexSuggestedOrInvalidForDisplay = true;
@@ -798,7 +797,7 @@
                  textColorHexForDisplay = '#5D2C68'; 
                  isTextColorHexSuggestedOrInvalidForDisplay = false; 
             }
-            else { // General logic for other colors
+            else { 
                 if (isValidHex(ocrTextColorHex)) { 
                     textColorHexForDisplay = ocrTextColorHex;
                     isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; 
