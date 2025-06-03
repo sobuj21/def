@@ -130,7 +130,14 @@
 <body class="bg-slate-900 min-h-screen p-4 md:p-8 flex items-center justify-center transition-colors duration-300">
     <div class="bg-slate-800 p-6 md:p-8 rounded-lg shadow-lg w-full max-w-2xl relative transition-colors duration-300">
 
-        <h1 id="pageTitle" class="text-2xl font-semibold mb-6 text-center text-slate-200" title="Click to reset form (or press Backspace outside inputs)">Data Extractor & Formatter</h1>
+        <div class="flex items-center justify-center mb-6">
+            <h1 id="pageTitle" class="text-2xl font-semibold text-slate-200" title="Click to reset form (or press Backspace outside inputs)">Data Extractor & Formatter</h1>
+            <a href="https://sobuj21.github.io/dc/" target="_blank" rel="noopener noreferrer" class="ml-3 p-1 rounded-full hover:bg-slate-700 transition-colors" title="Visit DC Website">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" />
+                </svg>
+            </a>
+        </div>
 
         <div class="mb-4 border-b border-slate-700">
             <nav class="-mb-px flex space-x-8" aria-label="Tabs">
@@ -797,7 +804,7 @@
                  textColorHexForDisplay = '#5D2C68'; 
                  isTextColorHexSuggestedOrInvalidForDisplay = false; 
             }
-            else { 
+            else { // General logic for other colors
                 if (isValidHex(ocrTextColorHex)) { 
                     textColorHexForDisplay = ocrTextColorHex;
                     isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; 
@@ -923,7 +930,8 @@
                         displayTextColorDescriptiveClean?.toLowerCase() !== 'black' && 
                         displayTextColorDescriptiveClean?.toLowerCase() !== 'white' &&
                         displayTextColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'soft pink'
+                        displayTextColorDescriptiveClean?.toLowerCase() !== 'soft pink' &&
+                        !(displayTextColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrTextColorHex?.toUpperCase() === '#5D2C68')
                         ) fieldsWithIssues.push("Text Hex Code");
                 }
                 if (outlineLabelPresentInInput) {
@@ -932,7 +940,8 @@
                          displayOutlineColorDescriptiveClean?.toLowerCase() !== 'black' && 
                          displayOutlineColorDescriptiveClean?.toLowerCase() !== 'white' &&
                          displayOutlineColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'soft pink'
+                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'soft pink' &&
+                         !(displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrOutlineColorHex?.toUpperCase() === '#5D2C68')
                          ) fieldsWithIssues.push("Outline Hex Code");
                 }
                 const hasLength = currentProcessedData.size && currentProcessedData.size.includes(" L");
