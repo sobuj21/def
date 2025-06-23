@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Extractor & Formatter</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    
     <style>
         .copy-btn.copied {
             background-color: #22c55e;
@@ -245,6 +245,7 @@
         let hasProcessedOnce = false;
         let currentProcessedData = {}; 
         let currentFilenameSizePart = ""; 
+        const apiKey = "AIzaSyCtVl9wyefRnkjxBTiRSIeGIMEzjTbyiFY";
 
 
         const commonColorHexMap = {
@@ -312,7 +313,7 @@
                 'coral', 'salmon', 'ivory', 'beige', 'azure', 'indigo', 'plum', 'orchid', 'thistle', 'sienna', 'peru', 'tan', 'wheat',
                 'cream', 'amber', 'bronze', 'copper', 'charcoal', 'cobalt', 'coffee', 'emerald', 'jade', 'lavender', 'lemon', 
                 'lilac', 'mustard', 'ochre', 'peach', 'pearl', 'rose', 'ruby', 'sapphire', 'scarlet', 'taupe', 'turquoise', 'ultramarine', 'vermilion', 'viridian',
-                'mint'
+                'mint', 'tree'
             ];
             const modifiers = [
                 'light', 'dark', 'deep', 'pale', 'medium', 'bright', 'soft', 'hot', 'sky', 'sea', 'spring', 'forest', 'electric', 
@@ -1053,6 +1054,20 @@
                 imagePreviewSection.classList.add('hidden'); 
             }
         }
+        
+        function imageToBase64(file, callback) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64String = event.target.result.split(',')[1];
+                callback(base64String);
+            };
+            reader.onerror = (error) => {
+                console.error("Error reading file:", error);
+                showMessage("Failed to read image file.", true);
+                callback(null);
+            };
+            reader.readAsDataURL(file);
+        }
 
         function handleFileSelect(file) {
             if (file && file.type.startsWith('image/')) {
@@ -1188,31 +1203,55 @@
                 previewImageElement.src = "#";
                 processInputText(inputText);
             } else if (imageFile) {
-                showMessage('Processing image... this may take a moment.', false, 10000);
+                showMessage('Processing image with Gemini... this may take a moment.', false, 20000);
                 showProcessingState(true);
-                try {
-                    const { data: { text } } = await Tesseract.recognize(
-                        imageFile, 
-                        'eng',
-                        {
-                            tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE, 
-                            preserve_interword_spaces: '1', 
+                imageToBase64(imageFile, async (base64ImageData) => {
+                    if (!base64ImageData) {
+                        showProcessingState(false);
+                        return; 
+                    }
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                { text: "Extract all text from this image exactly as it appears, including labels, values, and hex codes. Maintain original formatting and line breaks precisely." },
+                                { inline_data: { mime_type: imageFile.type, data: base64ImageData } }
+                            ]
+                        }]
+                    };
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorData.error.message}`);
                         }
-                    );
-                    console.log("OCR Result:", text); 
-                    processInputText(text);
-                } catch (error) { 
-                    console.error("OCR Error:", error); 
-                    showMessage(`Error during image processing: ${error.message || 'Unknown error'}`, true, 5000); 
-                    outputSection.classList.add('hidden'); 
-                    ocrWarningStar.classList.remove('hidden'); 
-                    ocrWarningHint.textContent = 'OCR Error';
-                    imagePreviewSection.classList.add('hidden'); 
-                    previewImageElement.src = "#";
-                }
-                finally { 
-                    showProcessingState(false); 
-                }
+                        const result = await response.json();
+                        if (result.candidates && result.candidates.length > 0 &&
+                            result.candidates[0].content && result.candidates[0].content.parts &&
+                            result.candidates[0].content.parts.length > 0) {
+                            const extractedText = result.candidates[0].content.parts[0].text;
+                            console.log("Gemini OCR Result:", extractedText); 
+                            processInputText(extractedText);
+                        } else {
+                            console.error("Gemini API Error: No valid content in response", result);
+                            throw new Error("Could not extract text from the image using the API.");
+                        }
+                    } catch (error) {
+                        console.error("Gemini API Call Error:", error); 
+                        showMessage(`Error during image processing: ${error.message || 'Unknown API error'}`, true, 5000); 
+                        outputSection.classList.add('hidden'); 
+                        ocrWarningStar.classList.remove('hidden'); 
+                        ocrWarningHint.textContent = 'API Error';
+                        imagePreviewSection.classList.add('hidden'); 
+                        previewImageElement.src = "#";
+                    } finally {
+                        showProcessingState(false);
+                    }
+                });
             } else { 
                 showMessage('Please paste text or upload an image first.', true); 
                 outputSection.classList.add('hidden'); 
@@ -1248,9 +1287,9 @@
 
         copyFilenameButton.addEventListener('click', () => {
             const filenameToCopy = filenameOutputDiv.textContent;
-            if (!filenameOutputDiv.classList.contains('text-red-400') && filenameToCopy) {
+            if (!filenameToCopy.startsWith("Error")) {
                 copyToClipboard(filenameToCopy, copyFilenameButton);
-            } else { showMessage('Cannot copy filename error message or empty filename.', true); }
+            } else { showMessage('Cannot copy error message.', true); }
         });
 
         pageTitle.addEventListener('click', resetForm);
