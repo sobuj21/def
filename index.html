@@ -1165,7 +1165,7 @@
                 previewImageElement.src = "#";
                 processInputText(inputText);
             } else if (imageFile) {
-                showMessage('Processing image with Gemini... this may take a moment.', false, 20000);
+                showMessage('Processing image... this may take a moment.', false, 20000);
                 showProcessingState(true);
                 imageToBase64(imageFile, async (base64ImageData) => {
                     if (!base64ImageData) {
