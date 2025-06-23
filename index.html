@@ -419,57 +419,6 @@
             }
         }
 
-        function extractValue(text, key) {
-            const keyIndex = text.indexOf(key);
-            if (keyIndex === -1) return null;
-            let valueStartIndex = keyIndex + key.length;
-            const potentialNextKeys = ["SKU:", "Font Style:", "Your custom text:", "Text Color:", "Text Outline Color:", "Size:", "Colors:", "Outline Colors:"];
-            const linesToIgnorePatterns = [
-                /^Customizations:/i,
-                /^Surface 1:/i,
-                /^(?:Please\s+)?(?:ignore|ingnore)\s+this\s+color(?:\s+and(?:\s+select(?:\s+(?:fron|front|from))?)?)?$/i
-            ];
-            let earliestNextKeyIndex = text.length;
-            for (const nextKey of potentialNextKeys) {
-                const currentNextKeyIndex = text.indexOf(nextKey, valueStartIndex);
-                if (currentNextKeyIndex !== -1) {
-                    const lineStartIndex = text.lastIndexOf('\n', currentNextKeyIndex) + 1;
-                    if (text.substring(lineStartIndex, currentNextKeyIndex).trim() === '') {
-                        earliestNextKeyIndex = Math.min(earliestNextKeyIndex, lineStartIndex);
-                    }
-                }
-            }
-            let rawValueBlock = text.substring(valueStartIndex, earliestNextKeyIndex);
-            const valueLines = rawValueBlock.split('\n');
-            const filteredLines = valueLines.filter(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine === '') return false;
-                for (const pattern of linesToIgnorePatterns) { 
-                    if (pattern.test(trimmedLine)) return false; 
-                }
-                return true;
-            });
-            
-            let joinedValue = filteredLines.join(' ').trim();
-
-            if (key === "Font Style:" && joinedValue) {
-                const ignorePhrasePattern = /(?:please\s+)?(?:ignore|ingnore)\s+this\s+color/i;
-                const matchIndex = joinedValue.search(ignorePhrasePattern);
-                if (matchIndex !== -1) {
-                    joinedValue = joinedValue.substring(0, matchIndex).trim();
-                }
-            }
-
-            let finalValue;
-            if (key === "Your custom text:") {
-                finalValue = joinedValue; 
-            } else {
-                finalValue = joinedValue.replace(/\s+/g, ' ').trim();
-            }
-            
-            return finalValue || null;
-        }
-
         function extractHexCode(text) {
             if (!text) return null;
             const hexRegex = /#([A-Fa-f0-9]{1,6})\b/g; 
@@ -884,12 +833,12 @@
 
 
             if (currentProcessedData.customText) {
-                const spacedCapsRegex = /(?:\b[A-Z]\s){1,}[A-Z]\b/; 
+                const spacedCapsRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/; 
                 const potentialAcronymErrorRegex = /[A-Z][a-z][A-Z]/; 
-                const allCapsWordMin2Regex = /\b[A-Z]{2,}\b/;
-                if (spacedCapsRegex.test(currentProcessedData.customText) || 
+                const allCapsWordWithSpacesRegex = /^[A-Z\s]+$/; 
+                 if (spacedCapsRegex.test(currentProcessedData.customText) || 
                     potentialAcronymErrorRegex.test(currentProcessedData.customText) ||
-                    (allCapsWordMin2Regex.test(currentProcessedData.customText) && !/[a-z]/.test(currentProcessedData.customText))
+                    (allCapsWordWithSpacesRegex.test(currentProcessedData.customText) && currentProcessedData.customText.includes(' '))
                     ) {
                     customTextNeedsReviewForDisplay = true; 
                 }
@@ -989,22 +938,35 @@
             ocrWarningStar.classList.add('hidden'); 
             ocrWarningHint.textContent = '';
 
-
-            const primaryKeys = {
-                sku: "SKU:", fontStyle: "Font Style:", customText: "Your custom text:",
-                textColorFull: "Text Color:", outlineColorFull: "Text Outline Color:", size: "Size:"
-            };
-            const alternativeKeys = {
-                textColorFull: "Colors:", outlineColorFull: "Outline Colors:"
-            };
+            const lines = inputText.split('\n');
             const rawValues = {};
-            for (const prop in primaryKeys) {
-                rawValues[prop] = extractValue(inputText, primaryKeys[prop]);
-                if (rawValues[prop] === null && alternativeKeys[prop]) {
-                    rawValues[prop] = extractValue(inputText, alternativeKeys[prop]);
+            const keyMap = {
+                "SKU:": "sku",
+                "Font Style:": "fontStyle",
+                "Your custom text:": "customText",
+                "Text Color:": "textColorFull",
+                "Colors:": "textColorFull",
+                "Text Outline Color:": "outlineColorFull",
+                "Outline Colors:": "outlineColorFull",
+                "Size:": "size"
+            };
+            const noiseLines = ["Customizations:", "Surface 1:"];
+
+            for(const line of lines) {
+                const trimmedLine = line.trim();
+                if(!trimmedLine) continue;
+                if(noiseLines.some(noise => trimmedLine.startsWith(noise))) continue;
+                
+                let keyFound = false;
+                for(const key in keyMap) {
+                    if(trimmedLine.startsWith(key)) {
+                        const value = trimmedLine.substring(key.length).trim();
+                        rawValues[keyMap[key]] = value;
+                        keyFound = true;
+                        break; 
+                    }
                 }
             }
-
 
             if (rawValues.sku === "Wind-5C-25") {
                 rawValues.sku = "Wind-SC-25";
@@ -1022,9 +984,9 @@
             }
 
             currentProcessedData = { 
-                sku: rawValues.sku, 
-                fontStyle: rawValues.fontStyle, 
-                customText: rawValues.customText, 
+                sku: rawValues.sku || null, 
+                fontStyle: rawValues.fontStyle || null, 
+                customText: rawValues.customText || null, 
                 textColorDescriptive: textColorParsed.descriptive, 
                 textColorHex: textColorParsed.hex, 
                 outlineColorDescriptive: outlineColorParsed.descriptive, 
