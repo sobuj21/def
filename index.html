@@ -642,7 +642,7 @@
                 saveSvg.classList.add('hidden');
                 editSvg.classList.remove('hidden');
                 button.title = `Edit ${label}`;
-                valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review', 'suggested-invalid-hex');
+                valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review', 'suggested-invalid-hex', 'ai-suggested-hex');
                 
                 const newValue = valueSpan.textContent.trim();
                 currentProcessedData[dataKey] = newValue;
