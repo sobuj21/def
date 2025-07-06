@@ -428,11 +428,11 @@
             while((match = hexRegex.exec(text)) !== null) {
                 let currentMatch = match[0];
                 currentMatch = '#' + currentMatch.substring(1)
-                                .replace(/¢/g, 'c')
-                                .replace(/\$/g, 's')
-                                .replace(/g/gi, '6') 
-                                .replace(/o/gi, '0') 
-                                .replace(/i|l/gi, '1'); 
+                                        .replace(/¢/g, 'c')
+                                        .replace(/\$/g, 's')
+                                        .replace(/g/gi, '6') 
+                                        .replace(/o/gi, '0') 
+                                        .replace(/i|l/gi, '1'); 
                 if (isValidHex(currentMatch)) { 
                     if (!potentialHex || currentMatch.length > potentialHex.length) {
                         potentialHex = currentMatch;
@@ -491,10 +491,11 @@
             cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
 
             if (cleaned) {
-              cleaned = cleaned.split(' ').map(w => {
-                if (w.toUpperCase() === 'SC' || w.toUpperCase() === 'ITC') return w.toUpperCase(); 
-                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-              }).join(' ');
+                cleaned = cleaned.split(' ').map(w => {
+                    if (w.toUpperCase() === 'SC' || w.toUpperCase() === 'ITC') return w.toUpperCase(); 
+                    // FIX: Changed to preserve casing after the first letter.
+                    return w.charAt(0).toUpperCase() + w.slice(1);
+                }).join(' ');
             }
             return cleaned;
         }
@@ -1265,8 +1266,8 @@
             const isEditingOutputValue = activeElement && activeElement.classList.contains('output-value') && activeElement.contentEditable === "true";
             
             const isTypingArea = targetTagName === 'textarea' || 
-                                 targetTagName === 'input' || 
-                                 (activeElement && activeElement.isContentEditable && !isEditingFilename && !isEditingOutputValue);
+                                  targetTagName === 'input' || 
+                                  (activeElement && activeElement.isContentEditable && !isEditingFilename && !isEditingOutputValue);
 
 
             if (event.key === 'Enter') {
