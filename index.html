@@ -7,7 +7,6 @@
     <title>Data Extractor & Formatter</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' dominant-baseline='central' text-anchor='middle' font-size='85' font-family='sans-serif' font-weight='bold' fill='%2360a5fa'%3ED%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tesseract.js for fallback OCR -->
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 
     <style>
@@ -222,7 +221,6 @@
 
         <div id="messageBox" class="mt-4 text-center text-sm font-medium hidden"></div>
         
-        <!-- OCR Source Display -->
         <div id="ocrSourceDisplay" class="text-center text-xs text-slate-500 mt-4"></div>
 
     </div>
@@ -264,6 +262,7 @@
         ];
         let currentApiKeyIndex = 0;
         const usedOcrEngines = new Set();
+        const disabledKeys = {}; // For 24-hour cooldown
 
         const commonColorHexMap = {
             'indian red': '#CD5C5C', 'light coral': '#F08080', 'salmon': '#FA8072', 'dark salmon': '#E9967A', 
@@ -1201,10 +1200,9 @@
             return text;
         }
         
-        // --- UPDATED: callGeminiApi with Timeout ---
         async function callGeminiApi(base64ImageData, mimeType, apiKey) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 9000); // 9-second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 9000); 
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             const payload = {
@@ -1221,10 +1219,10 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
-                    signal: controller.signal // Pass the abort signal
+                    signal: controller.signal
                 });
 
-                clearTimeout(timeoutId); // Clear the timeout if the request completes
+                clearTimeout(timeoutId);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -1247,13 +1245,14 @@
             } catch (error) {
                 clearTimeout(timeoutId);
                 if (error.name === 'AbortError') {
-                    throw new Error('Request timed out');
+                    const timeoutError = new Error('Request timed out');
+                    timeoutError.status = 'TIMEOUT';
+                    throw timeoutError;
                 }
-                throw error; // Re-throw other errors
+                throw error;
             }
         }
 
-        // --- UPDATED: Main Image Processing Orchestrator with Sequential Logic and Timeout ---
         async function handleSubmitImage(imageFile) {
             showProcessingState(true);
             showMessage('Processing image... this may take a moment.', false, 20000);
@@ -1266,52 +1265,57 @@
 
                 let success = false;
                 let lastError = null;
+                const twentyFourHours = 24 * 60 * 60 * 1000;
 
                 for (let i = 0; i < apiKeys.length; i++) {
                     const keyIndex = (currentApiKeyIndex + i) % apiKeys.length;
                     const currentKey = apiKeys[keyIndex];
+
+                    // Check if the key is on a 24-hour cooldown
+                    if (disabledKeys[keyIndex] && (Date.now() - disabledKeys[keyIndex] < twentyFourHours)) {
+                        console.warn(`Key index ${keyIndex} is on cooldown. Skipping.`);
+                        continue;
+                    }
+
                     try {
                         const resultText = await callGeminiApi(base64ImageData, imageFile.type, currentKey);
                         processInputText(resultText);
                         usedOcrEngines.add('Gemini');
                         updateOcrSourceDisplay();
-                        currentApiKeyIndex = keyIndex; // Remember the last working key
+                        currentApiKeyIndex = keyIndex;
                         success = true;
-                        break; // Exit loop on success
+                        break;
                     } catch (error) {
                         console.warn(`API call with key index ${keyIndex} failed.`, error.message);
                         lastError = error;
                         
-                        // If Gemini service is overloaded, break immediately to try Tesseract.
-                        if (error.status === 503) {
-                            console.log("Gemini is overloaded (503). Breaking loop to try Tesseract immediately.");
+                        // If Gemini service is overloaded or request times out, break immediately to try Tesseract.
+                        if (error.status === 503 || error.status === 'TIMEOUT') {
+                            console.log(`Gemini is overloaded or timed out. Breaking loop to try Tesseract immediately.`);
                             break; 
                         }
-                        // If a key's quota is reached (429) or it times out, continue to the next key.
-                        if (error.status === 429 || error.message === 'Request timed out') {
+                        // If a key's quota is reached, disable it for 24 hours and continue to the next key.
+                        if (error.status === 429) {
+                            console.log(`Key index ${keyIndex} reached its quota. Disabling for 24 hours.`);
+                            disabledKeys[keyIndex] = Date.now();
                             continue;
                         }
-                        // For other critical errors, it might be best to stop and fallback.
+                        // For other critical errors, stop trying Gemini keys.
                         break;
                     }
                 }
 
                 if (!success) {
                     console.error("All Gemini API attempts failed or were bypassed.", lastError);
-                    // Fallback if the last error was a service overload or if all keys failed.
-                    if (lastError) {
-                        showMessage('Gemini is busy or unavailable. Falling back to Tesseract OCR...', false, 5000);
-                        try {
-                            const tesseractText = await runTesseractOcr(imageFile);
-                            processInputText(tesseractText);
-                            usedOcrEngines.add('Tesseract');
-                            updateOcrSourceDisplay();
-                        } catch (tesseractError) {
-                            console.error("Tesseract OCR also failed.", tesseractError);
-                            showMessage(`OCR Failed: ${tesseractError.message || 'Tesseract error'}`, true, 5000);
-                        }
-                    } else {
-                        showMessage(`Error processing image: All API keys failed.`, true, 5000);
+                    showMessage('Gemini is busy or unavailable. Falling back to Tesseract OCR...', false, 5000);
+                    try {
+                        const tesseractText = await runTesseractOcr(imageFile);
+                        processInputText(tesseractText);
+                        usedOcrEngines.add('Tesseract');
+                        updateOcrSourceDisplay();
+                    } catch (tesseractError) {
+                        console.error("Tesseract OCR also failed.", tesseractError);
+                        showMessage(`OCR Failed: ${tesseractError.message || 'Tesseract error'}`, true, 5000);
                     }
                 }
 
