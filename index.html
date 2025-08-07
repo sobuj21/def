@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Extractor & Formatter</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' dominant-baseline='central' text-anchor='middle' font-size='85' font-family='sans-serif' font-weight='bold' fill='%2360a5fa'%3ED%3C/text%3E%3C/svg%3E">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' dominant-baseline='central' text-anchor='middle' font-size='85' font-family='sans-serif' font-weight='bold' fill='%2360a5fa'%3ED%3C/text%E%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 
@@ -99,6 +99,16 @@
             margin-left: 10px;
             vertical-align: middle;
         }
+        .hex-loader {
+             border: 2px solid #4A5568;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 5px;
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -124,6 +134,11 @@
         .edit-btn-icon {
             width: 1rem;
             height: 1rem;
+        }
+        #failedKeyWarning {
+            background-color: #7f1d1d; /* red-900 */
+            border: 1px solid #b91c1c; /* red-700 */
+            color: #fecaca; /* red-200 */
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -208,6 +223,7 @@
                     <button id="copyFilenameButton" class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button>
                 </div>
             </div>
+             <div id="failedKeyWarning" class="p-4 rounded-md hidden"></div>
         </div>
 
         <div id="imagePreviewSection" class="mt-6 hidden">
@@ -247,6 +263,7 @@
         const imagePreviewSection = document.getElementById('imagePreviewSection');
         const previewImageElement = document.getElementById('previewImageElement');
         const ocrSourceDisplay = document.getElementById('ocrSourceDisplay');
+        const failedKeyWarningDiv = document.getElementById('failedKeyWarning');
 
         let selectedFile = null;
         let hasProcessedOnce = false;
@@ -254,15 +271,102 @@
         let currentFilenameSizePart = "";
         
         const apiKeys = [
+            "AIzaSyBIv6f8J79DpVxNVXYXuKwWz0Br7SL9pos",
+            "AIzaSyCbzdBqP2oDqiqGfqfUnmQiCveO7yhH15Q",
+            "AIzaSyBYGb4prT15I2vMeI9miV-9aUd5ZxM8c8o",
+            "AIzaSyCCm0SzD1D2GQFFyMXXokyYcBXE-7kYNpc",
+            "AIzaSyB8FTScDPiDHWrTYUJ2GaFV4mCtUeJnh24",
+            "AIzaSyBMMrlAZrfqx53J39T7J9C8X5aebggAcaE",
             "AIzaSyB2w2vQ-unTmsxziZoOm8bbKY66n7BbJjM",
             "AIzaSyActZARdw5HqYmMEZXLdZ1AS1r1RtlbWIk",
             "AIzaSyCY_npBUie2u-g4jJZAdNiiWqpIf26UwfQ",
             "AIzaSyA_msAroJeyWrEL9MR0Zm93BXTdKPUYa-U",
             "AIzaSyCtVl9wyefRnkjxBTiRSIeGIMEzjTbyiFY"
         ];
-        let currentApiKeyIndex = 0;
+        
         const usedOcrEngines = new Set();
-        const disabledKeys = {}; // For 24-hour cooldown
+        const hexCache = new Map(); // Session cache for hex codes
+
+        // --- API Key Management Logic ---
+        const COOLDOWN_PERIOD = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+        function getApiKeyStates() {
+            return {
+                currentIndex: parseInt(localStorage.getItem('apiKey_currentIndex') || '0', 10),
+                cooldowns: JSON.parse(localStorage.getItem('apiKey_cooldowns') || '{}'),
+                permanentFails: JSON.parse(localStorage.getItem('apiKey_permanentFails') || '[]')
+            };
+        }
+
+        function saveApiKeyStates(states) {
+            localStorage.setItem('apiKey_currentIndex', states.currentIndex);
+            localStorage.setItem('apiKey_cooldowns', JSON.stringify(states.cooldowns));
+            localStorage.setItem('apiKey_permanentFails', JSON.stringify(states.permanentFails));
+        }
+
+        function setApiKeyCooldown(key, states) {
+            const cooldownTimestamp = states.cooldowns[key];
+            if (cooldownTimestamp && Date.now() > cooldownTimestamp) {
+                if (!states.permanentFails.includes(key)) {
+                    states.permanentFails.push(key);
+                    console.error(`API key ${key} failed again after 30-day cooldown. Marking as permanently failed.`);
+                }
+            } else if (!cooldownTimestamp) {
+                states.cooldowns[key] = Date.now() + COOLDOWN_PERIOD;
+                console.warn(`API key ${key} hit rate limit. Placing on 30-day cooldown.`);
+            }
+            saveApiKeyStates(states);
+        }
+        
+        function setApiKeyPermanentFail(key, states) {
+             if (!states.permanentFails.includes(key)) {
+                states.permanentFails.push(key);
+                console.error(`API key ${key} appears to be invalid or blocked. Marking as permanently failed.`);
+                saveApiKeyStates(states);
+            }
+        }
+
+        function getNextApiKey() {
+            let states = getApiKeyStates();
+            let availableKeys = [];
+            let allKeysOnCooldown = true;
+
+            for (const key of apiKeys) {
+                if (states.permanentFails.includes(key)) continue;
+                const cooldownTimestamp = states.cooldowns[key];
+                if (!cooldownTimestamp || Date.now() > cooldownTimestamp) {
+                    allKeysOnCooldown = false;
+                    availableKeys.push(key);
+                }
+            }
+
+            if (!allKeysOnCooldown && availableKeys.length === 0) {
+                 console.error("Logic error: allKeysOnCooldown is false but availableKeys is empty.");
+                 return { key: null, index: -1 };
+            }
+            
+            if (allKeysOnCooldown) {
+                console.warn("All keys are on cooldown. Overriding to re-test.");
+                availableKeys = apiKeys.filter(k => !states.permanentFails.includes(k));
+            }
+
+            if (availableKeys.length === 0) {
+                console.error("No available API keys to test.");
+                return { key: null, index: -1 };
+            }
+
+            const lastUsedKey = apiKeys[states.currentIndex];
+            if (availableKeys.includes(lastUsedKey)) {
+                 return { key: lastUsedKey, index: states.currentIndex };
+            }
+
+            const nextKey = availableKeys[0];
+            const nextIndex = apiKeys.indexOf(nextKey);
+            states.currentIndex = nextIndex;
+            saveApiKeyStates(states);
+            return { key: nextKey, index: nextIndex };
+        }
+
 
         const commonColorHexMap = {
             'indian red': '#CD5C5C', 'light coral': '#F08080', 'salmon': '#FA8072', 'dark salmon': '#E9967A', 
@@ -306,7 +410,7 @@
             'rosy brown': '#BC8F8F', 'sandy brown': '#F4A460', 'goldenrod': '#DAA520', 'dark goldenrod': '#B8860B', 
             'peru': '#CD853F', 'chocolate': '#D2691E', 'saddle brown': '#8B4513', 'sienna': '#A0522D', 
             'brown': '#A52A2A', 'matte brown': '#5D4037', 'metallic copper': '#D1793B', 'metallic brown': '#3E2723', 
-            'maroon': '#800000', 'zinnwaldite brown': '#2C1608', 'white': '#E6E9E9', 'matte white': '#E6E9E9', 
+            'maroon': '#800000', 'zinnwaldite brown': '#2C1608', 'white': '#F0F0F0', 'matte white': '#E6E9E9', 
             'metallic white': '#ECEFF1', 'snow': '#FFFAFA', 'honey dew': '#F0FFF0', 'mint cream': '#F5FFFA', 'mint': '#3EB489',
             'azure': '#F0FFFF', 'alice blue': '#F0F8FF', 'ghost white': '#F8F8FF', 'white smoke': '#F5F5F5', 
             'sea shell': '#FFF5EE', 'beige': '#F5F5DC', 'old lace': '#FDF5E6', 'floral white': '#FFFAF0', 
@@ -437,26 +541,12 @@
 
         function extractHexCode(text) {
             if (!text) return null;
-            const hexRegex = /#([A-Fa-f0-9]{1,6})\b/g; 
-            let potentialHex = null;
-            let match;
-            while((match = hexRegex.exec(text)) !== null) {
-                let currentMatch = match[0];
-                currentMatch = '#' + currentMatch.substring(1)
-                                                .replace(/¢/g, 'c')
-                                                .replace(/\$/g, 's')
-                                                .replace(/g/gi, '6') 
-                                                .replace(/o/gi, '0') 
-                                                .replace(/i|l/gi, '1'); 
-                if (isValidHex(currentMatch)) { 
-                    if (!potentialHex || currentMatch.length > potentialHex.length) {
-                        potentialHex = currentMatch;
-                    }
-                } else if (!potentialHex && currentMatch.length > 1 && currentMatch.startsWith('#')) { 
-                    potentialHex = currentMatch; 
-                }
+            const hexRegex = /#([A-Fa-f0-9]{6})\b/g; // Only match 6-digit hex codes
+            let match = hexRegex.exec(text);
+            if (match) {
+                return match[0];
             }
-            return potentialHex;
+            return null;
         }
 
         function parseColorValue(colorValue) {
@@ -664,9 +754,13 @@
                     currentProcessedData.size = parsedSizeInfo.display; 
                     currentFilenameSizePart = parsedSizeInfo.filenamePart; 
                 } else if (dataKey === 'textColorDescriptive') {
-                    currentProcessedData.textColorHex = extractHexCode(newValue) || null; 
+                    currentProcessedData.textColorHex = 'loading';
+                    refreshOutputDisplay();
+                    fetchHexCodesAsync(true);
                 } else if (dataKey === 'outlineColorDescriptive') {
-                    currentProcessedData.outlineColorHex = extractHexCode(newValue) || null;
+                    currentProcessedData.outlineColorHex = 'loading';
+                    refreshOutputDisplay();
+                    fetchHexCodesAsync(false, true);
                 } else if (dataKey === 'textColorHex') {
                     currentProcessedData.textColorHex = newValue; 
                 } else if (dataKey === 'outlineColorHex') {
@@ -693,9 +787,15 @@
         }
         
         function createOutputRow(label, value, dataKey, copyValue = null, needsReview = false) {
-            if (value === null || value === undefined || String(value).trim() === '') return null;
+            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
+            
             const finalCopyValue = (copyValue !== null && copyValue !== undefined) ? String(copyValue) : String(value);
-            const displayValue = String(value);
+            let displayValue = String(value);
+
+            if (value === 'loading') {
+                displayValue = `<div class="hex-loader"></div> Generating...`;
+            }
+
             const div = document.createElement('div');
             div.className = 'output-item border-b border-slate-700';
             
@@ -706,12 +806,12 @@
             
             const valueSpan = document.createElement('span');
             valueSpan.className = 'output-value text-slate-100 flex-grow';
-            if (label === "Text Hex Code" || label === "Text Outline Hex Code") {
+             if (label.includes("Hex Code")) {
                 if (needsReview) valueSpan.classList.add('suggested-invalid-hex');
             } else if (needsReview) {
                 valueSpan.classList.add('needs-review');
             }
-            valueSpan.textContent = displayValue;
+            valueSpan.innerHTML = displayValue;
             valueSpan.dataset.originalValue = displayValue; 
             div.appendChild(valueSpan);
 
@@ -722,10 +822,10 @@
             editButton.className = 'edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500';
             editButton.title = `Edit ${label}`;
             editButton.innerHTML = `
-                <svg class="edit-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="edit-btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                 </svg>
-                <svg class="edit-btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="edit-btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>`;
             editButton.onclick = () => toggleValueEdit(valueSpan, editButton, dataKey, label);
@@ -745,174 +845,63 @@
             extractedInfoDiv.innerHTML = ''; 
             let hasOutput = false;
             let customTextNeedsReviewForDisplay = false;
-            let isTextColorHexSuggestedOrInvalidForDisplay = false;
-            let isOutlineColorHexSuggestedOrInvalidForDisplay = false;
-
-            let displayTextColorDescriptiveClean = cleanColorNameForDisplay(currentProcessedData.textColorDescriptive);
-            let displayOutlineColorDescriptiveClean = cleanColorNameForDisplay(currentProcessedData.outlineColorDescriptive);
             
-            let textColorHexForDisplay = null; 
-            let ocrTextColorHex = currentProcessedData.textColorHex; 
-
-            if (displayTextColorDescriptiveClean?.toLowerCase() === 'white') {
-                textColorHexForDisplay = '#E6E9E9';
-                isTextColorHexSuggestedOrInvalidForDisplay = true;
-            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'black') {
-                textColorHexForDisplay = null; 
-                isTextColorHexSuggestedOrInvalidForDisplay = false;
-            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'matte black') {
-                textColorHexForDisplay = '#28282B';
-                isTextColorHexSuggestedOrInvalidForDisplay = true; 
-            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'soft pink') {
-                textColorHexForDisplay = '#FFB8BF';
-                isTextColorHexSuggestedOrInvalidForDisplay = true;
-            } else if (displayTextColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrTextColorHex?.toUpperCase() === '#5D2C68' && isValidHex(ocrTextColorHex)) {
-                 textColorHexForDisplay = '#5D2C68'; 
-                 isTextColorHexSuggestedOrInvalidForDisplay = false; 
-            }
-            else { 
-                if (isValidHex(ocrTextColorHex)) { 
-                    textColorHexForDisplay = ocrTextColorHex;
-                    isTextColorHexSuggestedOrInvalidForDisplay = ocrTextColorHex.length === 4; 
-                } else {
-                    const canonicalOcrColorName = getCanonicalColorName(displayTextColorDescriptiveClean);
-                    let mapHex = null; 
-                    if (canonicalOcrColorName) {
-                        for (const mapKey in commonColorHexMap) {
-                            if (getCanonicalColorName(mapKey) === canonicalOcrColorName) {
-                                mapHex = commonColorHexMap[mapKey];
-                                break; 
-                            }
-                        }
-                    }
-                    if (mapHex) { 
-                        textColorHexForDisplay = mapHex;
-                        isTextColorHexSuggestedOrInvalidForDisplay = true; 
-                    } else {
-                        textColorHexForDisplay = "N/A";
-                        isTextColorHexSuggestedOrInvalidForDisplay = true;
-                    }
-                }
-            }
-
-
-            let outlineColorHexForDisplay = null; 
-            let ocrOutlineColorHex = currentProcessedData.outlineColorHex;
-            const outlineLabelPresentInInput = currentProcessedData.originalInputText.toLowerCase().includes("text outline color:") || currentProcessedData.originalInputText.toLowerCase().includes("outline colors:");
+            const { textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, originalInputText, sku, fontStyle, customText, size } = currentProcessedData;
             
-            if (outlineLabelPresentInInput || (currentProcessedData.outlineColorDescriptive && currentProcessedData.outlineColorDescriptive.trim() !== "") || (currentProcessedData.outlineColorHex && currentProcessedData.outlineColorHex.trim() !== "")) {
-                if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'black') {
-                    outlineColorHexForDisplay = null; 
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = false;
-                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'white') {
-                    outlineColorHexForDisplay = '#E6E9E9';
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte black') {
-                    outlineColorHexForDisplay = '#28282B';
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'soft pink') {
-                    outlineColorHexForDisplay = '#FFB8BF';
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                } else if (displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrOutlineColorHex?.toUpperCase() === '#5D2C68' && isValidHex(ocrOutlineColorHex)) {
-                    outlineColorHexForDisplay = '#5D2C68';
-                    isOutlineColorHexSuggestedOrInvalidForDisplay = false;
-                }
-                else {
-                     if (isValidHex(ocrOutlineColorHex)) {
-                        outlineColorHexForDisplay = ocrOutlineColorHex;
-                        isOutlineColorHexSuggestedOrInvalidForDisplay = ocrOutlineColorHex.length === 4;
-                    } else {
-                        const canonicalOcrOutlineColorName = getCanonicalColorName(displayOutlineColorDescriptiveClean);
-                        let mapOutlineHex = null; 
-                        if (canonicalOcrOutlineColorName) {
-                            for (const mapKey in commonColorHexMap) {
-                               if (getCanonicalColorName(mapKey) === canonicalOcrOutlineColorName) {
-                                    mapOutlineHex = commonColorHexMap[mapKey];
-                                    break;
-                                }
-                            }
-                        }
-                        if (mapOutlineHex) {
-                            outlineColorHexForDisplay = mapOutlineHex;
-                            isOutlineColorHexSuggestedOrInvalidForDisplay = true; 
-                        } else {
-                            outlineColorHexForDisplay = "N/A";
-                            isOutlineColorHexSuggestedOrInvalidForDisplay = true;
-                        }
-                    }
-                }
-            } else {
-                displayOutlineColorDescriptiveClean = null; 
-                outlineColorHexForDisplay = null;
-                isOutlineColorHexSuggestedOrInvalidForDisplay = false;
-            }
+            const outlineLabelPresentInInput = originalInputText && (originalInputText.toLowerCase().includes("text outline color:") || originalInputText.toLowerCase().includes("outline colors:"));
 
-
-            if (currentProcessedData.customText) {
-                const spacedCapsRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/; 
-                const potentialAcronymErrorRegex = /[A-Z][a-z][A-Z]/; 
-                const allCapsWordWithSpacesRegex = /^[A-Z\s]+$/; 
-                 if (spacedCapsRegex.test(currentProcessedData.customText) || 
-                    potentialAcronymErrorRegex.test(currentProcessedData.customText) ||
-                    (allCapsWordWithSpacesRegex.test(currentProcessedData.customText) && currentProcessedData.customText.includes(' '))
-                    ) {
-                    customTextNeedsReviewForDisplay = true; 
-                }
-            }
-            
             function addRow(label, value, dataKey, copyValue = null, needsReviewFlag = false) {
                 const row = createOutputRow(label, value, dataKey, copyValue, needsReviewFlag);
                 if (row) { extractedInfoDiv.appendChild(row); hasOutput = true; }
             }
 
-            addRow('SKU', currentProcessedData.sku, 'sku', currentProcessedData.sku); 
-            addRow('Font Style', currentProcessedData.fontStyle, 'fontStyle', currentProcessedData.fontStyle); 
-            addRow('Your custom text', currentProcessedData.customText, 'customText', currentProcessedData.customText, customTextNeedsReviewForDisplay); 
-            addRow('Text Color', displayTextColorDescriptiveClean, 'textColorDescriptive', displayTextColorDescriptiveClean); 
-            if (textColorHexForDisplay !== null) {
-                addRow('Text Hex Code', textColorHexForDisplay, 'textColorHex', textColorHexForDisplay, isTextColorHexSuggestedOrInvalidForDisplay); 
-            }
+            addRow('SKU', sku, 'sku', sku, sku === "NoSKU"); 
+            addRow('Font Style', fontStyle, 'fontStyle', fontStyle); 
             
-            if (outlineLabelPresentInInput || (currentProcessedData.outlineColorDescriptive && currentProcessedData.outlineColorDescriptive.trim() !== "") || (currentProcessedData.outlineColorHex && currentProcessedData.outlineColorHex.trim() !== "") ) {
-                 if(displayOutlineColorDescriptiveClean || outlineColorHexForDisplay) { 
-                    addRow('Text Outline Color', displayOutlineColorDescriptiveClean, 'outlineColorDescriptive', displayOutlineColorDescriptiveClean); 
-                    if (outlineColorHexForDisplay !== null) {
-                        addRow('Text Outline Hex Code', outlineColorHexForDisplay, 'outlineColorHex', outlineColorHexForDisplay, isOutlineColorHexSuggestedOrInvalidForDisplay); 
-                    }
+            if (customText) {
+                const spacedCapsRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/; 
+                const potentialAcronymErrorRegex = /[A-Z][a-z][A-Z]/; 
+                const allCapsWordWithSpacesRegex = /^[A-Z\s]+$/; 
+                 if (spacedCapsRegex.test(customText) || 
+                    potentialAcronymErrorRegex.test(customText) ||
+                    (allCapsWordWithSpacesRegex.test(customText) && customText.includes(' '))
+                    ) {
+                    customTextNeedsReviewForDisplay = true; 
                 }
             }
-            addRow('Size', currentProcessedData.size, 'size', currentProcessedData.size);
+            addRow('Your custom text', customText, 'customText', customText, customTextNeedsReviewForDisplay); 
+
+            addRow('Text Color', textColorDescriptive, 'textColorDescriptive', textColorDescriptive); 
+            if (textColorHex !== null && textColorDescriptive?.toLowerCase() !== 'black') {
+                 addRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, !isValidHex(textColorHex) && textColorHex !== 'loading'); 
+            }
+            
+            if (outlineLabelPresentInInput) {
+                addRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive', outlineColorDescriptive); 
+                if (outlineColorHex !== null && outlineColorDescriptive?.toLowerCase() !== 'black') {
+                    addRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, !isValidHex(outlineColorHex) && outlineColorHex !== 'loading'); 
+                }
+            }
+            addRow('Size', size, 'size', size);
 
             const fieldsWithIssues = [];
              if (selectedFile) { 
-                if (!currentProcessedData.sku) fieldsWithIssues.push("SKU");
-                if (!currentProcessedData.fontStyle) fieldsWithIssues.push("Font Style");
-                if (!currentProcessedData.customText || customTextNeedsReviewForDisplay) { 
+                if (sku === "NoSKU") fieldsWithIssues.push("SKU");
+                if (!fontStyle) fieldsWithIssues.push("Font Style");
+                if (!customText || customTextNeedsReviewForDisplay) { 
                     if (!fieldsWithIssues.includes("Custom Text")) fieldsWithIssues.push("Custom Text");
                 }
-                if (currentProcessedData.originalInputText.toLowerCase().includes("text color:") || currentProcessedData.originalInputText.toLowerCase().includes("colors:")) {
-                    if (!displayTextColorDescriptiveClean) fieldsWithIssues.push("Text Color Name");
-                    if (isTextColorHexSuggestedOrInvalidForDisplay && textColorHexForDisplay === "N/A" && 
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'black' && 
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'white' &&
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
-                        displayTextColorDescriptiveClean?.toLowerCase() !== 'soft pink' &&
-                        !(displayTextColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrTextColorHex?.toUpperCase() === '#5D2C68')
-                        ) fieldsWithIssues.push("Text Hex Code");
+                if (originalInputText.toLowerCase().includes("text color:") || originalInputText.toLowerCase().includes("colors:")) {
+                    if (!textColorDescriptive) fieldsWithIssues.push("Text Color Name");
+                    if (!isValidHex(textColorHex) && textColorDescriptive?.toLowerCase() !== 'black') fieldsWithIssues.push("Text Hex Code");
                 }
                 if (outlineLabelPresentInInput) {
-                     if (!displayOutlineColorDescriptiveClean) fieldsWithIssues.push("Outline Color Name");
-                     if (isOutlineColorHexSuggestedOrInvalidForDisplay && outlineColorHexForDisplay === "N/A" && 
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'black' && 
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'white' &&
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'matte black' &&
-                         displayOutlineColorDescriptiveClean?.toLowerCase() !== 'soft pink' &&
-                         !(displayOutlineColorDescriptiveClean?.toLowerCase() === 'matte violet' && ocrOutlineColorHex?.toUpperCase() === '#5D2C68')
-                         ) fieldsWithIssues.push("Outline Hex Code");
+                     if (!outlineColorDescriptive) fieldsWithIssues.push("Outline Color Name");
+                     if (!isValidHex(outlineColorHex) && outlineColorDescriptive?.toLowerCase() !== 'black') fieldsWithIssues.push("Outline Hex Code");
                 }
-                const hasLength = currentProcessedData.size && currentProcessedData.size.includes(" L");
-                const hasHeight = currentProcessedData.size && currentProcessedData.size.includes(" H");
-                if (currentProcessedData.originalInputText.toLowerCase().includes("size:") && (!currentProcessedData.size || !(hasLength && hasHeight))) {
+                const hasLength = size && size.includes(" L");
+                const hasHeight = size && size.includes(" H");
+                if (originalInputText.toLowerCase().includes("size:") && (!size || !(hasLength && hasHeight))) {
                      fieldsWithIssues.push("Size");
                 }
                 if (fieldsWithIssues.length > 0) {
@@ -938,6 +927,7 @@
             }
 
             updateGeneratedFilenameDisplay();
+            displayFailedKeyWarning();
         }
 
 
@@ -975,7 +965,7 @@
                 
                 let keyFound = false;
                 for(const key in keyMap) {
-                    if(trimmedLine.startsWith(key)) {
+                    if(trimmedLine.toLowerCase().startsWith(key.toLowerCase())) {
                         const value = trimmedLine.substring(key.length).trim();
                         rawValues[keyMap[key]] = value;
                         keyFound = true;
@@ -1000,13 +990,13 @@
             }
 
             currentProcessedData = { 
-                sku: rawValues.sku || null, 
+                sku: rawValues.sku || "NoSKU", 
                 fontStyle: rawValues.fontStyle || null, 
                 customText: rawValues.customText || null, 
                 textColorDescriptive: textColorParsed.descriptive, 
-                textColorHex: textColorParsed.hex, 
+                textColorHex: textColorParsed.hex || 'loading', 
                 outlineColorDescriptive: outlineColorParsed.descriptive, 
-                outlineColorHex: outlineColorParsed.hex, 
+                outlineColorHex: (rawValues.outlineColorFull) ? (outlineColorParsed.hex || 'loading') : null,
                 size: displaySize,
                 originalInputText: inputText 
             };
@@ -1016,17 +1006,12 @@
             
             if (extractedInfoDiv.hasChildNodes() || filenameOutputDiv.textContent.trim() !== "") {
                 outputSection.classList.remove('hidden');
-                 if (ocrWarningStar.classList.contains('hidden') && !(document.querySelector('.output-value.needs-review')) && !(document.querySelector('.output-value.suggested-invalid-hex')) ) {
-                      showMessage('Data processed successfully!');
-                 } else if (selectedFile) {
-                      showMessage(`Data processed. Some fields might be missing or need review (see star/red text).`, false, 4500);
-                 }
-
                 outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 if (selectedFile) { 
                     imagePreviewSection.classList.remove('hidden');
                 }
                 hasProcessedOnce = true;
+                fetchHexCodesAsync(textColorParsed.hex === null, (rawValues.outlineColorFull && outlineColorParsed.hex === null));
             } else {
                 showMessage('No data to display after processing.', true);
                 imagePreviewSection.classList.add('hidden'); 
@@ -1110,8 +1095,13 @@
                     ocrWarningHint.textContent = '';
                     imagePreviewSection.classList.add('hidden');
                     previewImageElement.src = "#";
-                } catch (err) { console.error('Clipboard read failed: ', err); showMessage('Failed to paste. Check permissions or HTTPS.', true, 4000); }
-            } else { showMessage('Clipboard paste not available/supported (requires HTTPS).', true, 4000); }
+                } catch (err) { 
+                    console.error('Clipboard read failed: ', err); 
+                    showMessage('Auto-paste failed. Please paste manually.', true, 4000); 
+                }
+            } else { 
+                showMessage('Clipboard paste not available/supported (requires HTTPS).', true, 4000); 
+            }
         });
 
         imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
@@ -1200,11 +1190,11 @@
             return text;
         }
         
-        async function callGeminiApi(base64ImageData, mimeType, apiKey) {
+        async function callGeminiApiForOcr(base64ImageData, mimeType, apiKey) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 9000); 
+            const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased timeout to 25 seconds
 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{
                     parts: [
@@ -1232,8 +1222,7 @@
                 }
 
                 const result = await response.json();
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts &&
                     result.candidates[0].content.parts.length > 0) {
                     const extractedText = result.candidates[0].content.parts[0].text;
                     console.log(`Gemini OCR Result from key ending in ...${apiKey.slice(-4)}:`, extractedText);
@@ -1245,7 +1234,7 @@
             } catch (error) {
                 clearTimeout(timeoutId);
                 if (error.name === 'AbortError') {
-                    const timeoutError = new Error('Request timed out');
+                    const timeoutError = new Error('Request timed out after 25 seconds');
                     timeoutError.status = 'TIMEOUT';
                     throw timeoutError;
                 }
@@ -1265,48 +1254,32 @@
 
                 let success = false;
                 let lastError = null;
-                const twentyFourHours = 24 * 60 * 60 * 1000;
-
-                for (let i = 0; i < apiKeys.length; i++) {
-                    const keyIndex = (currentApiKeyIndex + i) % apiKeys.length;
-                    const currentKey = apiKeys[keyIndex];
-
-                    // Check if the key is on a 24-hour cooldown
-                    if (disabledKeys[keyIndex] && (Date.now() - disabledKeys[keyIndex] < twentyFourHours)) {
-                        console.warn(`Key index ${keyIndex} is on cooldown. Skipping.`);
-                        continue;
-                    }
-
+                let states = getApiKeyStates();
+                
+                const apiKeyInfo = getNextApiKey();
+                if (!apiKeyInfo.key) {
+                    showMessage("All API keys are currently unavailable. Falling back to Tesseract.", true, 5000);
+                } else {
                     try {
-                        const resultText = await callGeminiApi(base64ImageData, imageFile.type, currentKey);
+                        const resultText = await callGeminiApiForOcr(base64ImageData, imageFile.type, apiKeyInfo.key);
                         processInputText(resultText);
                         usedOcrEngines.add('Gemini');
                         updateOcrSourceDisplay();
-                        currentApiKeyIndex = keyIndex;
                         success = true;
-                        break;
                     } catch (error) {
-                        console.warn(`API call with key index ${keyIndex} failed.`, error.message);
+                        console.warn(`API call with key ${apiKeyInfo.key} failed.`, error.message);
                         lastError = error;
                         
-                        // If Gemini service is overloaded or request times out, break immediately to try Tesseract.
-                        if (error.status === 503 || error.status === 'TIMEOUT') {
-                            console.log(`Gemini is overloaded or timed out. Breaking loop to try Tesseract immediately.`);
-                            break; 
-                        }
-                        // If a key's quota is reached, disable it for 24 hours and continue to the next key.
                         if (error.status === 429) {
-                            console.log(`Key index ${keyIndex} reached its quota. Disabling for 24 hours.`);
-                            disabledKeys[keyIndex] = Date.now();
-                            continue;
+                            setApiKeyCooldown(apiKeyInfo.key, states);
+                        } else if (error.status === 400 || error.status === 403) {
+                            setApiKeyPermanentFail(apiKeyInfo.key, states);
                         }
-                        // For other critical errors, stop trying Gemini keys.
-                        break;
                     }
                 }
 
                 if (!success) {
-                    console.error("All Gemini API attempts failed or were bypassed.", lastError);
+                    console.error("Gemini API attempt failed. Falling back to Tesseract.", lastError);
                     showMessage('Gemini is busy or unavailable. Falling back to Tesseract OCR...', false, 5000);
                     try {
                         const tesseractText = await runTesseractOcr(imageFile);
@@ -1387,8 +1360,8 @@
             const isEditingOutputValue = activeElement && activeElement.classList.contains('output-value') && activeElement.contentEditable === "true";
             
             const isTypingArea = targetTagName === 'textarea' || 
-                                  targetTagName === 'input' || 
-                                  (activeElement && activeElement.isContentEditable && !isEditingFilename && !isEditingOutputValue);
+                                 targetTagName === 'input' || 
+                                 (activeElement && activeElement.isContentEditable && !isEditingFilename && !isEditingOutputValue);
 
 
             if (event.key === 'Enter') {
@@ -1428,6 +1401,135 @@
                  }
             }
         });
+
+        // --- Asynchronous Hex Code Fetching Logic ---
+
+        async function fetchHexCodesAsync(fetchText, fetchOutline) {
+            if (fetchText && currentProcessedData.textColorDescriptive) {
+                const hex = await getHexCode(currentProcessedData.textColorDescriptive);
+                currentProcessedData.textColorHex = hex;
+                hexCache.set(getCanonicalColorName(currentProcessedData.textColorDescriptive), hex);
+                refreshOutputDisplay();
+            }
+            if (fetchOutline && currentProcessedData.outlineColorDescriptive) {
+                const hex = await getHexCode(currentProcessedData.outlineColorDescriptive);
+                currentProcessedData.outlineColorHex = hex;
+                hexCache.set(getCanonicalColorName(currentProcessedData.outlineColorDescriptive), hex);
+                refreshOutputDisplay();
+            }
+        }
+
+        async function getHexCode(colorName) {
+            const canonicalName = getCanonicalColorName(colorName);
+            if (hexCache.has(canonicalName)) {
+                return hexCache.get(canonicalName);
+            }
+
+            if (!usedOcrEngines.has('Gemini')) {
+                return getHexFromLocalDB(colorName);
+            }
+
+            try {
+                const geminiHex = await callGeminiForHexCode(colorName);
+                if (isValidHex(geminiHex)) {
+                    return geminiHex;
+                }
+            } catch (error) {
+                console.warn(`Gemini hex code generation for "${colorName}" failed.`, error);
+            }
+            
+            return getHexFromLocalDB(colorName);
+        }
+        
+        function getHexFromLocalDB(colorName) {
+            console.log(`Falling back to local database for "${colorName}"`);
+            const canonicalName = getCanonicalColorName(colorName);
+            for (const mapKey in commonColorHexMap) {
+                if (getCanonicalColorName(mapKey) === canonicalName) {
+                    return commonColorHexMap[mapKey];
+                }
+            }
+            return "N/A";
+        }
+
+        async function callGeminiForHexCode(colorName) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 25000); // 25-second timeout
+
+            const apiKeyInfo = getNextApiKey();
+            if (!apiKeyInfo.key) {
+                throw new Error("All API keys are currently unavailable for hex code generation.");
+            }
+            
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKeyInfo.key}`;
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: `Your task is to act as a color specialist. Search the public internet to find the single, most common, official 6-digit hex code for the color "${colorName}". Prioritize established, verifiable color standards like Pantone, RAL, or major paint manufacturers. Do not use any color databases that might be provided in the context of this program's code; your search must be external. If a verifiable official code is found, provide it. If no single official code exists, then generate the most accurate and visually representative 6-digit hex code for this color. For the specific color "White", you must always return #F0F0F0. Respond with only the hex code in #XXXXXX format. If you absolutely cannot determine a hex code, respond with 'N/A'.` }
+                    ]
+                }]
+            };
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                     let states = getApiKeyStates();
+                     if (response.status === 429) {
+                        setApiKeyCooldown(apiKeyInfo.key, states);
+                    } else if (response.status === 400 || response.status === 403) {
+                        setApiKeyPermanentFail(apiKeyInfo.key, states);
+                    }
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData?.error?.message || `API Error: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    const text = result.candidates[0].content.parts[0].text.trim();
+                    if (isValidHex(text)) {
+                        return text;
+                    }
+                }
+                throw new Error("Invalid or no hex code in Gemini response.");
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.warn(`callGeminiForHexCode failed for key ${apiKeyInfo.key}:`, error.message);
+                if (error.name === 'AbortError') {
+                    throw new Error('Request timed out after 25 seconds');
+                }
+                throw error;
+            }
+        }
+        
+        function displayFailedKeyWarning() {
+            const states = getApiKeyStates();
+            if (states.permanentFails.length > 0) {
+                failedKeyWarningDiv.innerHTML = '<p class="font-bold mb-2">Action Required: The following API keys are permanently failing and should be removed from the code:</p>';
+                const ul = document.createElement('ul');
+                ul.className = 'list-disc list-inside';
+                states.permanentFails.forEach(key => {
+                    const li = document.createElement('li');
+                    li.className = 'font-mono text-xs';
+                    li.textContent = key;
+                    ul.appendChild(li);
+                });
+                failedKeyWarningDiv.appendChild(ul);
+                failedKeyWarningDiv.classList.remove('hidden');
+            } else {
+                failedKeyWarningDiv.classList.add('hidden');
+                failedKeyWarningDiv.innerHTML = '';
+            }
+        }
+
     </script>
 </body>
 </html>
