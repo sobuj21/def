@@ -975,8 +975,12 @@
                 }
             }
 
-            if (rawValues.sku === "Wind-5C-25") {
-                rawValues.sku = "Wind-SC-25";
+            let processedSku = rawValues.sku || "NoSKU";
+            if (processedSku !== "NoSKU") {
+                processedSku = processedSku.replace(/_/g, '-');
+                if (processedSku === "SC-MTO-25") {
+                    processedSku = "SC-MСТО-25";
+                }
             }
 
             const textColorParsed = parseColorValue(rawValues.textColorFull);
@@ -991,7 +995,7 @@
             }
 
             currentProcessedData = { 
-                sku: rawValues.sku || "NoSKU", 
+                sku: processedSku, 
                 fontStyle: rawValues.fontStyle || null, 
                 customText: rawValues.customText || null, 
                 textColorDescriptive: textColorParsed.descriptive, 
@@ -1185,7 +1189,7 @@
 
         async function runTesseractOcr(imageFile) {
             showMessage('Using Tesseract OCR...', false, 20000);
-            const worker = await Tesseract.createWorker('eng', 1, {
+            const worker = await Tesseract.createWorker('eng+rus', 1, {
                 logger: m => {
                     if (m.status === 'recognizing text') {
                         const progress = (m.progress * 100).toFixed(0);
@@ -1207,7 +1211,7 @@
             const payload = {
                 contents: [{
                     parts: [
-                        { text: "Extract all text from this image exactly as it appears, including labels, values, and hex codes. Maintain original formatting and line breaks precisely." },
+                        { text: "Extract all text from this image exactly as it appears, including labels, values, and hex codes. Maintain original formatting and line breaks precisely. It is critical to preserve all characters from any language, including Cyrillic letters like 'С', 'Т', 'О', exactly as they are seen." },
                         { inline_data: { mime_type: mimeType, data: base64ImageData } }
                     ]
                 }]
