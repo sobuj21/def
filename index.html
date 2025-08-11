@@ -337,45 +337,29 @@
             }
         }
 
-        function getNextApiKey() {
+        function getCurrentApiKey() {
             let states = getApiKeyStates();
-            let availableKeys = [];
-            let allKeysOnCooldown = true;
-
-            for (const key of apiKeys) {
-                if (states.permanentFails.includes(key)) continue;
-                const cooldownTimestamp = states.cooldowns[key];
-                if (!cooldownTimestamp || Date.now() > cooldownTimestamp) {
-                    allKeysOnCooldown = false;
-                    availableKeys.push(key);
-                }
-            }
-
-            if (!allKeysOnCooldown && availableKeys.length === 0) {
-                 console.error("Logic error: allKeysOnCooldown is false but availableKeys is empty.");
-                 return { key: null, index: -1 };
-            }
+            let currentIndex = states.currentIndex;
             
-            if (allKeysOnCooldown) {
-                console.warn("All keys are on cooldown. Overriding to re-test.");
-                availableKeys = apiKeys.filter(k => !states.permanentFails.includes(k));
+            if (currentIndex >= apiKeys.length) {
+                currentIndex = 0;
+                states.currentIndex = 0;
+                saveApiKeyStates(states);
             }
 
-            if (availableKeys.length === 0) {
-                console.error("No available API keys to test.");
-                return { key: null, index: -1 };
-            }
+            let key = apiKeys[currentIndex];
+            
+            if (states.permanentFails.includes(key)) return null;
+            const cooldownTimestamp = states.cooldowns[key];
+            if (cooldownTimestamp && Date.now() < cooldownTimestamp) return null;
 
-            const lastUsedKey = apiKeys[states.currentIndex];
-            if (availableKeys.includes(lastUsedKey)) {
-                 return { key: lastUsedKey, index: states.currentIndex };
-            }
+            return key;
+        }
 
-            const nextKey = availableKeys[0];
-            const nextIndex = apiKeys.indexOf(nextKey);
-            states.currentIndex = nextIndex;
+        function moveToNextApiKey() {
+            let states = getApiKeyStates();
+            states.currentIndex = (states.currentIndex + 1) % apiKeys.length;
             saveApiKeyStates(states);
-            return { key: nextKey, index: nextIndex };
         }
 
 
@@ -609,7 +593,7 @@
             if (cleaned) {
                 cleaned = cleaned.split(' ').map(w => {
                     if (w.toUpperCase() === 'SC' || w.toUpperCase() === 'ITC') return w.toUpperCase(); 
-                    return w.charAt(0).toUpperCase() + w.slice(1);
+                    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
                 }).join(' ');
             }
             return cleaned;
@@ -1225,7 +1209,7 @@
         
         async function callGeminiApiForOcr(base64ImageData, mimeType, apiKey) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased timeout to 25 seconds
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const payload = {
@@ -1267,7 +1251,7 @@
             } catch (error) {
                 clearTimeout(timeoutId);
                 if (error.name === 'AbortError') {
-                    const timeoutError = new Error('Request timed out after 25 seconds');
+                    const timeoutError = new Error('Request timed out after 15 seconds');
                     timeoutError.status = 'TIMEOUT';
                     throw timeoutError;
                 }
@@ -1285,46 +1269,79 @@
                     return;
                 }
 
-                let success = false;
-                let lastError = null;
+                let ocrSuccessful = false;
+                let ocrText = '';
                 let states = getApiKeyStates();
-                
-                const apiKeyInfo = getNextApiKey();
-                if (!apiKeyInfo.key) {
-                    showMessage("All API keys are currently unavailable. Falling back to Tesseract.", true, 5000);
-                } else {
+                let triedKeysCount = 0;
+                let initialKeyIndex = states.currentIndex;
+
+                // Main loop
+                while (!ocrSuccessful && triedKeysCount < apiKeys.length) {
+                    let currentKey = getCurrentApiKey();
+                    if (!currentKey) {
+                        moveToNextApiKey();
+                        triedKeysCount++;
+                        if (getApiKeyStates().currentIndex === initialKeyIndex) break;
+                        continue;
+                    }
+
                     try {
-                        const resultText = await callGeminiApiForOcr(base64ImageData, imageFile.type, apiKeyInfo.key);
-                        processInputText(resultText);
+                        ocrText = await callGeminiApiForOcr(base64ImageData, imageFile.type, currentKey);
+                        ocrSuccessful = true;
                         usedOcrEngines.add('Gemini');
-                        updateOcrSourceDisplay();
-                        success = true;
+                        break;
                     } catch (error) {
-                        console.warn(`API call with key ${apiKeyInfo.key} failed.`, error.message);
-                        lastError = error;
+                        console.warn(`API call with key ${currentKey} failed.`, error.message);
+                        if (error.status === 'TIMEOUT' || !(error.status === 429 || error.status === 400 || error.status === 403)) {
+                            break; 
+                        }
+                        if (error.status === 429) setApiKeyCooldown(currentKey, states);
+                        if (error.status === 400 || error.status === 403) setApiKeyPermanentFail(currentKey, states);
                         
-                        if (error.status === 429) {
-                            setApiKeyCooldown(apiKeyInfo.key, states);
-                        } else if (error.status === 400 || error.status === 403) {
-                            setApiKeyPermanentFail(apiKeyInfo.key, states);
+                        moveToNextApiKey();
+                        triedKeysCount++;
+                    }
+                }
+
+                // Cooldown override logic
+                if (!ocrSuccessful && triedKeysCount >= apiKeys.length) {
+                    console.warn("All available keys failed or are on cooldown. Re-testing all non-permanent keys.");
+                    states = getApiKeyStates();
+                    
+                    for (let i = 0; i < apiKeys.length; i++) {
+                        const keyToTest = apiKeys[i];
+                        if (states.permanentFails.includes(keyToTest)) continue;
+                        
+                        try {
+                            ocrText = await callGeminiApiForOcr(base64ImageData, imageFile.type, keyToTest);
+                            ocrSuccessful = true;
+                            usedOcrEngines.add('Gemini');
+                            states.currentIndex = i;
+                            saveApiKeyStates(states);
+                            break;
+                        } catch (error) {
+                            console.warn(`Re-test with key ${keyToTest} failed.`, error.message);
+                            if (error.status === 429) setApiKeyCooldown(keyToTest, states);
+                            else if (error.status === 400 || error.status === 403) setApiKeyPermanentFail(keyToTest, states);
                         }
                     }
                 }
 
-                if (!success) {
-                    console.error("Gemini API attempt failed. Falling back to Tesseract.", lastError);
-                    showMessage('Gemini is busy or unavailable. Falling back to Tesseract OCR...', false, 5000);
+                // Final fallback to Tesseract
+                if (!ocrSuccessful) {
+                    console.error("All Gemini API attempts failed. Falling back to Tesseract.");
+                    showMessage('All API keys are busy. Falling back to Tesseract OCR...', false, 5000);
                     try {
-                        const tesseractText = await runTesseractOcr(imageFile);
-                        processInputText(tesseractText);
+                        ocrText = await runTesseractOcr(imageFile);
                         usedOcrEngines.add('Tesseract');
-                        updateOcrSourceDisplay();
                     } catch (tesseractError) {
                         console.error("Tesseract OCR also failed.", tesseractError);
                         showMessage(`OCR Failed: ${tesseractError.message || 'Tesseract error'}`, true, 5000);
                     }
                 }
 
+                processInputText(ocrText);
+                updateOcrSourceDisplay();
                 showProcessingState(false);
             });
         }
@@ -1449,11 +1466,6 @@
             const hex = await getHexCode(descriptiveColor, true); // true to bypass cache
             currentProcessedData[hexDataKey] = hex;
             
-            const hexCache = getHexCache();
-            const canonicalName = getCanonicalColorName(descriptiveColor);
-            hexCache[canonicalName] = hex;
-            saveHexCache(hexCache);
-            
             refreshOutputDisplay();
         }
 
@@ -1474,30 +1486,40 @@
             const canonicalName = getCanonicalColorName(colorName);
             const hexCache = getHexCache();
 
+            // Priority 1: Check cache, unless bypassed
             if (!bypassCache && hexCache[canonicalName]) {
-                return hexCache[canonicalName];
+                const cachedData = hexCache[canonicalName];
+                const now = new Date().getTime();
+                if (now < cachedData.expiry) {
+                    return cachedData.hex;
+                }
             }
 
-            if (!usedOcrEngines.has('Gemini')) {
-                return getHexFromLocalDB(colorName);
-            }
-
+            // Priority 2: Use Gemini API if available
             try {
                 const geminiHex = await callGeminiForHexCode(colorName);
                 if (isValidHex(geminiHex)) {
-                    hexCache[canonicalName] = geminiHex;
-                    saveHexCache(hexCache);
+                    const expiry = new Date().getTime() + COOLDOWN_PERIOD; // 30-day cache
+                    const currentCache = getHexCache();
+                    currentCache[canonicalName] = { hex: geminiHex, expiry: expiry };
+                    saveHexCache(currentCache);
                     return geminiHex;
                 }
             } catch (error) {
-                console.warn(`Gemini hex code generation for "${colorName}" failed.`, error);
+                console.warn(`Gemini hex code generation for "${colorName}" failed. Falling back.`, error);
             }
             
-            return getHexFromLocalDB(colorName);
+            // Priority 3 (Fallback): Check our internal, trusted database
+            const localHex = getHexFromLocalDB(colorName);
+            if(localHex !== "N/A") {
+                return localHex;
+            }
+
+            // Final Fallback
+            return "N/A";
         }
         
         function getHexFromLocalDB(colorName) {
-            console.log(`Falling back to local database for "${colorName}"`);
             const canonicalName = getCanonicalColorName(colorName);
             for (const mapKey in commonColorHexMap) {
                 if (getCanonicalColorName(mapKey) === canonicalName) {
@@ -1509,14 +1531,14 @@
 
         async function callGeminiForHexCode(colorName) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); // 25-second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
 
-            const apiKeyInfo = getNextApiKey();
-            if (!apiKeyInfo.key) {
-                throw new Error("All API keys are currently unavailable for hex code generation.");
+            const apiKey = getCurrentApiKey();
+            if (!apiKey) {
+                throw new Error("No available API key for hex code generation.");
             }
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKeyInfo.key}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{
                     parts: [
@@ -1538,9 +1560,11 @@
                 if (!response.ok) {
                      let states = getApiKeyStates();
                      if (response.status === 429) {
-                        setApiKeyCooldown(apiKeyInfo.key, states);
+                        setApiKeyCooldown(apiKey, states);
+                        moveToNextApiKey();
                     } else if (response.status === 400 || response.status === 403) {
-                        setApiKeyPermanentFail(apiKeyInfo.key, states);
+                        setApiKeyPermanentFail(apiKey, states);
+                        moveToNextApiKey();
                     }
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData?.error?.message || `API Error: ${response.statusText}`);
@@ -1557,9 +1581,9 @@
 
             } catch (error) {
                 clearTimeout(timeoutId);
-                console.warn(`callGeminiForHexCode failed for key ${apiKeyInfo.key}:`, error.message);
+                console.warn(`callGeminiForHexCode failed for key ${apiKey}:`, error.message);
                 if (error.name === 'AbortError') {
-                    throw new Error('Request timed out after 25 seconds');
+                    throw new Error('Request timed out after 15 seconds');
                 }
                 throw error;
             }
