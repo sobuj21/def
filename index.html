@@ -48,7 +48,7 @@
         .output-value.needs-review, .output-value.suggested-invalid-hex {
             color: #f87171;
         }
-        .copy-btn, .edit-btn {
+        .copy-btn, .edit-btn, .search-btn {
             margin-left: 0.5rem;
             padding: 0.3rem 0.6rem;
             font-size: 0.8rem;
@@ -132,7 +132,7 @@
             height: auto;
             max-height: 70vh;
         }
-        .edit-btn-icon {
+        .btn-icon {
             width: 1rem;
             height: 1rem;
         }
@@ -179,7 +179,7 @@
         </div>
 
         <div id="dropZone" class="mb-6 bg-slate-700 border-2 border-dashed border-slate-600 rounded-lg">
-            <p class="text-sm text-slate-400">Drag & Drop an image here</p>
+            <p class="text-sm text-slate-400">Drag & Drop an image</p>
             <label for="imageInput" id="imageUploadLabel" class="bg-blue-600 hover:bg-blue-700 text-white">Choose Image</label>
             <input type="file" id="imageInput" accept="image/*">
             <span id="fileName" class="block text-sm text-slate-400 italic mt-2">No file chosen</span>
@@ -214,10 +214,10 @@
                 <div class="filename-section bg-slate-700/50">
                     <div id="filenameOutput" class="text-sm text-slate-200 break-words" contenteditable="false"></div>
                     <button id="editFilenameButton" class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit Filename">
-                        <svg class="edit-btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <svg class="btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                         </svg>
-                        <svg class="edit-btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <svg class="btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                         </svg>
                     </button>
@@ -288,7 +288,15 @@
         ];
         
         const usedOcrEngines = new Set();
-        const hexCache = new Map(); // Session cache for hex codes
+
+        // --- Caching Logic ---
+        function getHexCache() {
+            return JSON.parse(localStorage.getItem('hexCodeCache') || '{}');
+        }
+
+        function saveHexCache(cache) {
+            localStorage.setItem('hexCodeCache', JSON.stringify(cache));
+        }
 
         // --- API Key Management Logic ---
         const COOLDOWN_PERIOD = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -789,7 +797,7 @@
             }
         }
         
-        function createOutputRow(label, value, dataKey, copyValue = null, needsReview = false) {
+        function createOutputRow(label, value, dataKey, copyValue = null, needsReview = false, descriptiveColorForSearch = null) {
             if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
             
             const finalCopyValue = (copyValue !== null && copyValue !== undefined) ? String(copyValue) : String(value);
@@ -810,9 +818,9 @@
             const valueSpan = document.createElement('span');
             valueSpan.className = 'output-value text-slate-100 flex-grow';
              if (label.includes("Hex Code")) {
-                if (needsReview) valueSpan.classList.add('suggested-invalid-hex');
+                 if (needsReview) valueSpan.classList.add('suggested-invalid-hex');
             } else if (needsReview) {
-                valueSpan.classList.add('needs-review');
+                 valueSpan.classList.add('needs-review');
             }
             valueSpan.innerHTML = displayValue;
             valueSpan.dataset.originalValue = displayValue; 
@@ -821,14 +829,24 @@
             const buttonsWrapper = document.createElement('div');
             buttonsWrapper.className = 'flex items-center flex-shrink-0';
 
+            // --- Add Search Button for Hex Rows ---
+            if (label.includes("Hex Code")) {
+                const searchButton = document.createElement('button');
+                searchButton.className = 'search-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500';
+                searchButton.title = `Search again for ${descriptiveColorForSearch}`;
+                searchButton.innerHTML = `<svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg>`;
+                searchButton.onclick = () => forceFetchHexCode(descriptiveColorForSearch, dataKey);
+                buttonsWrapper.appendChild(searchButton);
+            }
+
             const editButton = document.createElement('button');
             editButton.className = 'edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500';
             editButton.title = `Edit ${label}`;
             editButton.innerHTML = `
-                <svg class="edit-btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                 </svg>
-                <svg class="edit-btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>`;
             editButton.onclick = () => toggleValueEdit(valueSpan, editButton, dataKey, label);
@@ -853,8 +871,8 @@
             
             const outlineLabelPresentInInput = originalInputText && (originalInputText.toLowerCase().includes("text outline color:") || originalInputText.toLowerCase().includes("outline colors:"));
 
-            function addRow(label, value, dataKey, copyValue = null, needsReviewFlag = false) {
-                const row = createOutputRow(label, value, dataKey, copyValue, needsReviewFlag);
+            function addRow(label, value, dataKey, copyValue = null, needsReviewFlag = false, descriptiveColorForSearch = null) {
+                const row = createOutputRow(label, value, dataKey, copyValue, needsReviewFlag, descriptiveColorForSearch);
                 if (row) { extractedInfoDiv.appendChild(row); hasOutput = true; }
             }
 
@@ -876,13 +894,13 @@
 
             addRow('Text Color', textColorDescriptive, 'textColorDescriptive', textColorDescriptive); 
             if (textColorHex !== null && textColorDescriptive?.toLowerCase() !== 'black') {
-                 addRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, !isValidHex(textColorHex) && textColorHex !== 'loading'); 
+                 addRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, !isValidHex(textColorHex) && textColorHex !== 'loading', textColorDescriptive); 
             }
             
             if (outlineLabelPresentInInput) {
                 addRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive', outlineColorDescriptive); 
                 if (outlineColorHex !== null && outlineColorDescriptive?.toLowerCase() !== 'black') {
-                    addRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, !isValidHex(outlineColorHex) && outlineColorHex !== 'loading'); 
+                    addRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, !isValidHex(outlineColorHex) && outlineColorHex !== 'loading', outlineColorDescriptive); 
                 }
             }
             addRow('Size', size, 'size', size);
@@ -1419,25 +1437,45 @@
 
         // --- Asynchronous Hex Code Fetching Logic ---
 
+        async function forceFetchHexCode(descriptiveColor, hexDataKey) {
+            if (!descriptiveColor) {
+                showMessage("No color name to search for.", true);
+                return;
+            }
+            
+            currentProcessedData[hexDataKey] = 'loading';
+            refreshOutputDisplay();
+
+            const hex = await getHexCode(descriptiveColor, true); // true to bypass cache
+            currentProcessedData[hexDataKey] = hex;
+            
+            const hexCache = getHexCache();
+            const canonicalName = getCanonicalColorName(descriptiveColor);
+            hexCache[canonicalName] = hex;
+            saveHexCache(hexCache);
+            
+            refreshOutputDisplay();
+        }
+
         async function fetchHexCodesAsync(fetchText, fetchOutline) {
             if (fetchText && currentProcessedData.textColorDescriptive) {
                 const hex = await getHexCode(currentProcessedData.textColorDescriptive);
                 currentProcessedData.textColorHex = hex;
-                hexCache.set(getCanonicalColorName(currentProcessedData.textColorDescriptive), hex);
                 refreshOutputDisplay();
             }
             if (fetchOutline && currentProcessedData.outlineColorDescriptive) {
                 const hex = await getHexCode(currentProcessedData.outlineColorDescriptive);
                 currentProcessedData.outlineColorHex = hex;
-                hexCache.set(getCanonicalColorName(currentProcessedData.outlineColorDescriptive), hex);
                 refreshOutputDisplay();
             }
         }
 
-        async function getHexCode(colorName) {
+        async function getHexCode(colorName, bypassCache = false) {
             const canonicalName = getCanonicalColorName(colorName);
-            if (hexCache.has(canonicalName)) {
-                return hexCache.get(canonicalName);
+            const hexCache = getHexCache();
+
+            if (!bypassCache && hexCache[canonicalName]) {
+                return hexCache[canonicalName];
             }
 
             if (!usedOcrEngines.has('Gemini')) {
@@ -1447,6 +1485,8 @@
             try {
                 const geminiHex = await callGeminiForHexCode(colorName);
                 if (isValidHex(geminiHex)) {
+                    hexCache[canonicalName] = geminiHex;
+                    saveHexCache(hexCache);
                     return geminiHex;
                 }
             } catch (error) {
@@ -1480,7 +1520,7 @@
             const payload = {
                 contents: [{
                     parts: [
-                        { text: `Your task is to act as a color specialist. Search the public internet to find the single, most common, official 6-digit hex code for the color "${colorName}". Prioritize established, verifiable color standards like Pantone, RAL, or major paint manufacturers. Do not use any color databases that might be provided in the context of this program's code; your search must be external. If a verifiable official code is found, provide it. If no single official code exists, then generate the most accurate and visually representative 6-digit hex code for this color. For the specific color "White", you must always return #F0F0F0. Respond with only the hex code in #XXXXXX format. If you absolutely cannot determine a hex code, respond with 'N/A'.` }
+                        { text: `You are an expert color system analyst. Your task is to determine the single most official or widely accepted 6-digit hex code for the color "${colorName}". First, search for official standards (like Pantone, RAL, or major manufacturer specifications). If multiple standards exist, find the most common one. If no single official standard exists, analyze various reputable sources (like design libraries, color encyclopedias, and major brand style guides) to find the hex code that has the strongest consensus. For the specific color "White", you must always return #F0F0F0. Respond with only the hex code in #XXXXXX format. If no reliable code can be determined, respond with 'N/A'.` }
                     ]
                 }]
             };
