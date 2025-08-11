@@ -864,13 +864,9 @@
             addRow('Font Style', fontStyle, 'fontStyle', fontStyle); 
             
             if (customText) {
-                const spacedCapsRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/; 
-                const potentialAcronymErrorRegex = /[A-Z][a-z][A-Z]/; 
-                const allCapsWordWithSpacesRegex = /^[A-Z\s]+$/; 
-                 if (spacedCapsRegex.test(customText) || 
-                    potentialAcronymErrorRegex.test(customText) ||
-                    (allCapsWordWithSpacesRegex.test(customText) && customText.includes(' '))
-                    ) {
+                const multipleSpacesRegex = /\s{2,}/;
+                const singleLettersRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/;
+                if (multipleSpacesRegex.test(customText) || singleLettersRegex.test(customText)) {
                     customTextNeedsReviewForDisplay = true; 
                 }
             }
