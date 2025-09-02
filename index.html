@@ -1134,7 +1134,7 @@
         
         // UPDATED: Calls the secure Worker instead of Google directly
         async function callGeminiApiForOcr(base64ImageData, mimeType) {
-            const workerUrl = 'https://gemini-api-proxy.sobuj-islam.workers.dev'; 
+            const workerUrl = 'https://gemini-api.aurtho.com'; 
 
             const payload = {
                 endpoint: 'ocr',
@@ -1391,7 +1391,7 @@
 
         // UPDATED: Calls the secure Worker instead of Google directly
         async function callGeminiForHexCode(colorName) {
-            const workerUrl = 'https://gemini-api-proxy.sobuj-islam.workers.dev';
+            const workerUrl = 'https://gemini-api.aurtho.com';
 
             const payload = {
                 endpoint: 'hex',
@@ -1433,3 +1433,4 @@
     </script>
 </body>
 </html>
+
