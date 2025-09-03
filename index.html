@@ -135,9 +135,13 @@
             setProcessingState(true);
             clearOutput();
             const inputText = dom.dataInput.value.trim();
-            if (inputText) processInputText(inputText);
-            else if (appState.selectedFile) await processImage(appState.selectedFile);
-            else showMessage('Please paste text or upload an image.', true);
+            if (inputText) {
+                processInputText(inputText);
+            } else if (appState.selectedFile) {
+                await processImage(appState.selectedFile);
+            } else {
+                showMessage('Please paste text or upload an image.', true);
+            }
             setProcessingState(false);
         }
 
@@ -160,9 +164,13 @@
                     }
 
                     let fallbackMessage = 'Secure API failed. Falling back to Tesseract OCR...';
-                    if (error.name === 'AbortError') fallbackMessage = `API took too long (>40s). Falling back to Tesseract...`;
-                    else if (error.message.includes("cooldown") || error.message.includes("failed to process")) fallbackMessage = `All API keys are busy. Falling back to Tesseract...`;
-                    else if (error.message.includes("RETRY_FAILED")) fallbackMessage = `Secure API is overloaded. Falling back to Tesseract...`;
+                    if (error.name === 'AbortError') {
+                        fallbackMessage = `API took too long (>40s). Falling back to Tesseract...`;
+                    } else if (error.message.includes("cooldown") || error.message.includes("failed to process")) {
+                        fallbackMessage = `All API keys are busy. Falling back to Tesseract...`;
+                    } else if (error.message.includes("RETRY_FAILED")) {
+                        fallbackMessage = `Secure API is overloaded. Falling back to Tesseract...`;
+                    }
                     
                     showMessage(fallbackMessage, false, 5000);
                     ocrText = await runTesseractOcr(imageFile);
@@ -242,10 +250,22 @@
         }
 
         async function callWorkerWithRetries(payload) {
+            const jsonBody = JSON.stringify(payload);
+            
+            // Pre-flight check to ensure we are not sending an empty/invalid body.
+            if (!jsonBody || jsonBody === '{}') {
+                throw new Error("Client-side error: Aborting send due to empty or invalid payload.");
+            }
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
             try {
-                const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+                const response = await fetch(WORKER_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: jsonBody,
+                    signal: controller.signal 
+                });
                 
                 if (response.status >= 500) { 
                     const errorBody = await response.json().catch(() => ({}));
@@ -254,7 +274,12 @@
                     }
                     console.warn(`Worker returned server error ${response.status}. Retrying...`);
                     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-                    const retryResponse = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+                    const retryResponse = await fetch(WORKER_URL, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: jsonBody,
+                        signal: controller.signal 
+                    });
                     if (!retryResponse.ok) {
                         const retryErrorBody = await retryResponse.json().catch(() => ({}));
                         const errorMessage = retryErrorBody.error || `Retry failed with status: ${retryResponse.status}`;
