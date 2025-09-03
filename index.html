@@ -9,1427 +9,470 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20x='50%25'%20y='50%25'%20dominant-baseline='central'%20text-anchor='middle'%20font-size='85'%20font-family='sans-serif'%20font-weight='bold'%20fill='%2360a5fa'%3ED%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-
-    <style>
-        .copy-btn.copied {
-            background-color: #22c55e;
-            color: white;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .output-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-        }
-        .output-item:last-child {
-            border-bottom: none;
-        }
-        .output-label {
-            font-weight: 600;
-            margin-right: 0.5rem;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .output-value {
-            flex-grow: 1;
-            text-align: left;
-            word-break: break-word;
-            margin-right: 0.5rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-        }
-        .output-value[contenteditable="true"] {
-            outline: 2px solid #60a5fa;
-            background-color: #374151;
-        }
-        .output-value.needs-review, .output-value.suggested-invalid-hex {
-            color: #f87171;
-        }
-        .copy-btn, .edit-btn, .search-btn {
-            margin-left: 0.5rem;
-            padding: 0.3rem 0.6rem;
-            font-size: 0.8rem;
-            transition: background-color 0.2s ease, color 0.2s ease;
-            flex-shrink: 0;
-            border-radius: 0.375rem;
-            cursor: pointer;
-        }
-        .filename-section {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            border-radius: 0.375rem;
-        }
-        #filenameOutput {
-            flex-grow: 1;
-            margin-right: 1rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-        }
-        #filenameOutput[contenteditable="true"] {
-            outline: 2px solid #60a5fa;
-            background-color: #374151;
-        }
-        #pageTitle {
-            cursor: pointer;
-            user-select: none;
-        }
-        #imageUploadLabel {
-            cursor: pointer;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            transition: background-color 0.2s ease;
-            display: inline-block;
-            text-align: center;
-        }
-        #imageInput {
-            display: none;
-        }
-        .loader {
-            border: 4px solid #4A5568;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-        .hex-loader {
-             border: 2px solid #4A5568;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            width: 14px;
-            height: 14px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 5px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .processing {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-        #dropZone {
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            text-align: center;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        #dropZone p {
-            margin-bottom: 0.75rem;
-        }
-        #previewImageElement {
-            max-width: 100%;
-            height: auto;
-            max-height: 70vh;
-        }
-        .btn-icon {
-            width: 1rem;
-            height: 1rem;
-        }
-        #failedKeyWarning {
-            background-color: #7f1d1d; /* red-900 */
-            border: 1px solid #b91c1c; /* red-700 */
-            color: #fecaca; /* red-200 */
-        }
-    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .copy-btn.copied { background-color: #22c55e; color: white; }
+        .output-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; }
+        .output-item:last-child { border-bottom: none; }
+        .output-label { font-weight: 600; margin-right: 0.5rem; white-space: nowrap; flex-shrink: 0; }
+        .output-value { flex-grow: 1; text-align: left; word-break: break-word; margin-right: 0.5rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .output-value[contenteditable="true"] { outline: 2px solid #60a5fa; background-color: #374151; }
+        .output-value.needs-review, .output-value.suggested-invalid-hex { color: #f87171; }
+        .btn, .copy-btn, .edit-btn, .search-btn { margin-left: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; transition: background-color 0.2s ease, color 0.2s ease; flex-shrink: 0; border-radius: 0.375rem; cursor: pointer; }
+        .filename-section { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 0.375rem; }
+        #filenameOutput { flex-grow: 1; margin-right: 1rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        #filenameOutput[contenteditable="true"] { outline: 2px solid #60a5fa; background-color: #374151; }
+        #pageTitle { cursor: pointer; user-select: none; }
+        #imageUploadLabel { cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.375rem; transition: background-color 0.2s ease; display: inline-block; text-align: center; }
+        #imageInput { display: none; }
+        .loader { border: 4px solid #4A5568; border-top: 4px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-left: 10px; vertical-align: middle; }
+        .hex-loader { border: 2px solid #4A5568; border-top: 2px solid #3498db; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; margin-right: 5px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .processing { opacity: 0.7; cursor: not-allowed; }
+        #dropZone { border-radius: 0.5rem; padding: 1.5rem; text-align: center; transition: background-color 0.2s ease, border-color 0.2s ease; }
+        #dropZone p { margin-bottom: 0.75rem; }
+        #previewImageElement { max-width: 100%; height: auto; max-height: 70vh; }
+        .btn-icon { width: 1rem; height: 1rem; }
+        body.dragging::before { content: 'Drop Image Anywhere to Process'; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(16, 24, 40, 0.9); color: white; display: flex; justify-content: center; align-items: center; font-size: 2rem; font-weight: bold; z-index: 9999; pointer-events: none; border: 4px dashed #60a5fa; box-sizing: border-box; }
+    </style>
 </head>
 
 <body class="bg-slate-900 min-h-screen p-4 md:p-8 flex items-center justify-center transition-colors duration-300">
     <div class="bg-slate-800 p-6 md:p-8 rounded-lg shadow-lg w-full max-w-2xl relative transition-colors duration-300">
-
-        <div class="flex items-center justify-center mb-6">
+        <header class="flex items-center justify-center mb-6">
             <h1 id="pageTitle" class="text-2xl font-semibold text-slate-200" title="Click to reset form (or press Backspace outside inputs)">Data Extractor & Formatter</h1>
             <a href="https://c.aurtho.com" target="_blank" rel="noopener noreferrer" class="ml-3 p-1 rounded-full hover:bg-slate-700 transition-colors" title="Visit C Website">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" /></svg>
             </a>
-        </div>
+        </header>
 
-        <div class="mb-4 border-b border-slate-700">
-            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            </nav>
-        </div>
-
-        <div class="mb-4">
-            <label for="dataInput" class="block text-sm font-medium text-slate-300 mb-1">Paste your data here:</label>
-            <div class="flex items-center space-x-2">
-                <textarea id="dataInput" rows="6" class="flex-grow p-3 border border-slate-600 rounded-md shadow-sm focus:ring-indigo-400 focus:border-indigo-400 text-sm resize-y bg-slate-700 text-slate-100 placeholder-slate-400" placeholder="Example:&#10;SKU: DC-CTO-25&#10;Font Style: Snap ITC&#10;..."></textarea>
-                <button id="pasteButton" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 dark:ring-offset-slate-800 transition duration-150 ease-in-out text-sm">Paste</button>
-            </div>
-        </div>
-
-        <div class="my-4 flex items-center">
-            <div class="flex-grow border-t border-slate-600"></div>
-            <span class="flex-shrink mx-4 text-slate-400 text-sm">OR</span>
-            <div class="flex-grow border-t border-slate-600"></div>
-        </div>
-
-        <div id="dropZone" class="mb-6 bg-slate-700 border-2 border-dashed border-slate-600 rounded-lg">
-            <p class="text-sm text-slate-400">Drag & Drop an image</p>
-            <label for="imageInput" id="imageUploadLabel" class="bg-blue-600 hover:bg-blue-700 text-white">Choose Image</label>
-            <input type="file" id="imageInput" accept="image/*">
-            <span id="fileName" class="block text-sm text-slate-400 italic mt-2">No file chosen</span>
-            <p class="text-xs text-slate-500 mt-1">Image text will be extracted on submit. Accuracy depends on image quality.</p>
-        </div>
-
-
-        <div class="flex justify-end mb-6">
-            <button id="submitButton" class="px-5 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 dark:ring-offset-slate-800 transition duration-150 ease-in-out font-medium flex items-center justify-center">
-                <span>Submit</span>
-                <div id="submitSpinner" class="loader hidden ml-2"></div>
-            </button>
-        </div>
-
-        <div id="outputSection" class="space-y-4 hidden">
-            <div>
-                <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2 flex items-center">
-                    <span>Extracted Information</span>
-                    <span id="ocrWarningStar" class="ml-2 text-yellow-400 hidden" title="Potential OCR issues detected. Please verify extracted data.">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                            <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" />
-                        </svg>
-                    </span>
-                    <span id="ocrWarningHint" class="ml-1 text-xs text-yellow-500"></span>
-                </h2>
-                <div id="extractedInfo" class="space-y-1 bg-slate-700/50 p-4 rounded-md shadow-inner">
+        <main>
+            <div class="mb-4">
+                <label for="dataInput" class="block text-sm font-medium text-slate-300 mb-1">Paste your data here:</label>
+                <div class="flex items-center space-x-2">
+                    <textarea id="dataInput" rows="6" class="flex-grow p-3 border border-slate-600 rounded-md shadow-sm focus:ring-indigo-400 focus:border-indigo-400 text-sm resize-y bg-slate-700 text-slate-100 placeholder-slate-400" placeholder="Example:&#10;SKU: DC-CTO-25&#10;Font Style: Snap ITC&#10;..."></textarea>
+                    <button id="pasteButton" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 dark:ring-offset-slate-800 transition duration-150 ease-in-out text-sm">Paste</button>
                 </div>
             </div>
 
-            <div>
-                <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">Generated Filename</h2>
-                <div class="filename-section bg-slate-700/50">
-                    <div id="filenameOutput" class="text-sm text-slate-200 break-words" contenteditable="false"></div>
-                    <button id="editFilenameButton" class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit Filename">
-                        <svg class="btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                        </svg>
-                        <svg class="btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                    <button id="copyFilenameButton" class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button>
+            <div class="my-4 flex items-center">
+                <div class="flex-grow border-t border-slate-600"></div><span class="flex-shrink mx-4 text-slate-400 text-sm">OR</span><div class="flex-grow border-t border-slate-600"></div>
+            </div>
+
+            <div id="dropZone" class="mb-6 bg-slate-700 border-2 border-dashed border-slate-600">
+                <p class="text-sm text-slate-400">Drag & Drop an image</p>
+                <label for="imageInput" id="imageUploadLabel" class="bg-blue-600 hover:bg-blue-700 text-white">Choose Image</label>
+                <input type="file" id="imageInput" accept="image/*">
+                <span id="fileName" class="block text-sm text-slate-400 italic mt-2">No file chosen</span>
+                <p class="text-xs text-slate-500 mt-1">Image text will be extracted on submit. Accuracy depends on image quality.</p>
+            </div>
+
+            <div class="flex justify-end mb-6">
+                <button id="submitButton" class="px-5 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 dark:ring-offset-slate-800 transition duration-150 ease-in-out font-medium flex items-center justify-center">
+                    <span>Submit</span><div id="submitSpinner" class="loader hidden"></div>
+                </button>
+            </div>
+
+            <section id="outputSection" class="space-y-4 hidden">
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2 flex items-center">
+                        <span>Extracted Information</span>
+                        <span id="ocrWarning" class="ml-2 text-yellow-400 hidden" title="Potential OCR issues detected. Please verify extracted data."><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" /></svg></span>
+                        <span id="ocrWarningHint" class="ml-1 text-xs text-yellow-500"></span>
+                    </h2>
+                    <div id="extractedInfo" class="space-y-1 bg-slate-700/50 p-4 rounded-md shadow-inner"></div>
                 </div>
-            </div>
-             <div id="failedKeyWarning" class="p-4 rounded-md hidden"></div>
-        </div>
-
-        <div id="imagePreviewSection" class="mt-6 hidden">
-            <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">
-                Preview&nbsp;
-            </h2>
-            <div class="bg-slate-700/50 p-4 rounded-md shadow-inner flex justify-center items-center">
-                <img id="previewImageElement" src="#" alt="Image Preview" class="rounded-md">
-            </div>
-        </div>
-
-        <div id="messageBox" class="mt-4 text-center text-sm font-medium hidden"></div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">Generated Filename</h2>
+                    <div class="filename-section bg-slate-700/50">
+                        <div id="filenameOutput" class="text-sm text-slate-200 break-words" contenteditable="false"></div>
+                        <button id="editFilenameButton" class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit Filename">
+                            <svg class="btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>
+                            <svg class="btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <button id="copyFilenameButton" class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="imagePreviewSection" class="mt-6 hidden">
+                <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-700 pb-2">Image Preview</h2>
+                <div class="bg-slate-700/50 p-4 rounded-md shadow-inner flex justify-center items-center">
+                    <img id="previewImageElement" src="#" alt="Image Preview" class="rounded-md">
+                </div>
+            </section>
+        </main>
         
-        <div id="ocrSourceDisplay" class="text-center text-xs text-slate-500 mt-4"></div>
-
+        <footer class="mt-4 text-center">
+            <div id="messageBox" class="text-sm font-medium hidden"></div>
+            <div id="ocrSourceDisplay" class="text-xs text-slate-500 mt-2"></div>
+        </footer>
     </div>
 
     <script>
-        const dataInput = document.getElementById('dataInput');
-        const pasteButton = document.getElementById('pasteButton');
-        const submitButton = document.getElementById('submitButton');
-        const outputSection = document.getElementById('outputSection');
-        const extractedInfoDiv = document.getElementById('extractedInfo');
-        const filenameOutputDiv = document.getElementById('filenameOutput');
-        const copyFilenameButton = document.getElementById('copyFilenameButton');
-        const editFilenameButton = document.getElementById('editFilenameButton');
-        const editIcon = document.getElementById('editIcon');
-        const saveIcon = document.getElementById('saveIcon');
-        const messageBox = document.getElementById('messageBox');
-        const pageTitle = document.getElementById('pageTitle');
-        const imageInput = document.getElementById('imageInput');
-        const fileNameSpan = document.getElementById('fileName');
-        const submitSpinner = document.getElementById('submitSpinner');
-        const dropZone = document.getElementById('dropZone');
-        const ocrWarningStar = document.getElementById('ocrWarningStar');
-        const ocrWarningHint = document.getElementById('ocrWarningHint');
-        const imagePreviewSection = document.getElementById('imagePreviewSection');
-        const previewImageElement = document.getElementById('previewImageElement');
-        const ocrSourceDisplay = document.getElementById('ocrSourceDisplay');
-        const failedKeyWarningDiv = document.getElementById('failedKeyWarning');
+    document.addEventListener('DOMContentLoaded', () => {
+        const WORKER_URL = 'https://gemini-api.aurtho.com/';
+        const RETRY_DELAY_MS = 3000;
+        const OCR_TIMEOUT_MS = 40000;
 
-        let selectedFile = null;
-        let hasProcessedOnce = false;
-        let currentProcessedData = {};
-        let currentFilenameSizePart = "";
-        
-        const usedOcrEngines = new Set();
-
-        // --- Caching Logic ---
-        function getHexCache() {
-            return JSON.parse(localStorage.getItem('hexCodeCache') || '{}');
-        }
-
-        function saveHexCache(cache) {
-            localStorage.setItem('hexCodeCache', JSON.stringify(cache));
-        }
-
-        const commonColorHexMap = {
-            'indian red': '#CD5C5C', 'light coral': '#F08080', 'salmon': '#FA8072', 'dark salmon': '#E9967A', 
-            'light salmon': '#FFA07A', 'crimson': '#DC143C', 'red': '#FF0000', 'matte red': '#B33F40', 
-            'glossy red': '#DD0004', 'light red': '#C91100', 'metallic red': '#B71C1C', 'fire brick': '#B22222', 
-            'dark red': '#8B0000', 'alabama crimson': '#AF002A', 'pink': '#FFC0CB', 'matte pink': '#EC407A', 
-            'glossy pink': '#FF35B8', 'metallic pink': '#AD1457', 'light pink': '#FFB6C1', 'hot pink': '#FF69B4', 
-            'deep pink': '#FF1493', 'medium violet red': '#C71585', 'pale violet red': '#DB7093', 
-            'soft pink': '#FFB8BF', 'matte soft pink': '#D288A2', 'coral': '#FF7F50', 'tomato': '#FF6347', 'orange red': '#FF4500', 
-            'dark orange': '#FF8C00', 'orange': '#FFA500', 'matte orange': '#ED944D', 'metallic orange': '#E65100', 
-            'gold': '#FFD700', 'yellow': '#FFFF00', 'matte yellow': '#FBC02D', 'metallic yellow': '#F9A825', 'matte gold': '#D2BF37',
-            'glossy yellow': '#FFF158', 'light yellow': '#FFFFE0', 'lemon chiffon': '#FFFACD', 'papaya whip': '#FFEFD5', 'moccasin': '#FFE4B5', 
-            'peach puff': '#FFDAB9', 'pale goldenrod': '#EEE8AA', 'khaki': '#F0E68C', 'dark khaki': '#BDB76B', 
-            'brimstone yellow': '#F4D83F', 'green yellow': '#ADFF2F', 'chartreuse': '#7FFF00', 'lawn green': '#7CFC00', 
-            'lime': '#00FF00', 'matte lime': '#AFB42B', 'metallic lime': '#827717', 'lime green': '#32CD32', 
-            'lime-tree green': '#7CBF4E', 'pale green': '#98FB98', 'light green': '#90EE90', 
-            'medium spring green': '#00FA9A', 'spring green': '#00FF7F', 'medium sea green': '#3CB371', 
-            'sea green': '#2E8B57', 'forest green': '#228B22', 'green': '#00BF00', 'matte green': '#48A14D', 
-            'metallic green': '#1B5E20', 'dark green': '#006400', 'yellow green': '#9ACD32', 'olive drab': '#6B8E23', 
-            'olive': '#808000', 'dark olive green': '#556B2F', 'dark sea green': '#8FBC8F', 'light sea green': '#20B2AA', 
-            'dark cyan': '#008B8B', 'teal': '#008080', 'acid green': '#B0BF1A', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 
-            'matte cyan': '#00ACC1', 'metallic cyan': '#00838F', 'light cyan': '#E0FFFF', 'pale turquoise': '#AFEEEE', 
-            'aquamarine': '#7FFFD4', 'turquoise': '#40E0D0', 'medium turquoise': '#48D1CC', 'dark turquoise': '#00CED1', 
-            'zomp': '#39A78E', 'cadet blue': '#5F9EA0', 'steel blue': '#4682B4', 'light steel blue': '#B0C4DE', 
-            'powder blue': '#B0E0E6', 'light blue': '#ADD8E6', 'sky blue': '#87CEEB', 'light sky blue': '#87CEFA', 'matte sky blue': '#7AAEC4',
-            'deep sky blue': '#00BFFF', 'dodger blue': '#1E90FF', 'cornflower blue': '#6495ED', 'matte turquoise': '#5FBDB1', 
-            'medium slate blue': '#7B68EE', 'king blue': '#152A78', 'royal blue': '#4169E1', 'blue': '#0000FF', 
-            'deep sea blue': '#015482', 'deep sea blue color': '#256794', 'matte blue': '#1976D2', 'metallic blue': '#0D47A1', 'medium blue': '#0000CD', 
-            'dark blue': '#00008B', 'navy': '#000080', 'matte navy': '#283593', 'metallic navy': '#1A237E', 
-            'midnight blue': '#191970', 'matte dark blue': '#0B0B60', 'brilliant blue': '#2752D6', 
-            'air superiority blue': '#72A0C1', 'aero blue': '#C9FFE5', 'air force blue (raf)': '#5D8AA8', 
-            'absolute zero': '#0048BA', 'aero': '#7CB9E8', 'zaffre': '#0014A8', 'lavender': '#D3D3FF', 
-            'thistle': '#D8BFD8', 'plum': '#DDA0DD', 'violet': '#EE82EE', 'matte violet': '#8658A5', 'orchid': '#DA70D6', 
-            'fuchsia': '#FF00FF', 'magenta': '#FF00FF', 'matte magenta': '#C2185B', 'metallic magenta': '#880E4F', 
-            'medium orchid': '#BA55D3', 'medium purple': '#9370DB', 'rebecca purple': '#663399', 'blue violet': '#8A2BE2', 
-            'dark violet': '#9400D3', 'dark orchid': '#9932CC', 'dark magenta': '#8B008B', 'purple': '#800080', 
-            'matte purple': '#7B1FA2', 'metallic purple': '#4A148C', 'indigo': '#4B0082', 'slate blue': '#6A5ACD', 
-            'dark slate blue': '#483D8B', 'burgundy': '#800020', 'matte burgundy': '#691C2D', 'glossy burgundy': '#800020',
-            'african violet': '#B284BE', 'cornsilk': '#FFF8DC', 'blanched almond': '#FFEBCD', 'bisque': '#FFE4C4', 
-            'navajo white': '#FFDEAD', 'wheat': '#F5DEB3', 'burly wood': '#DEB887', 'tan': '#D2B48C', 
-            'rosy brown': '#BC8F8F', 'sandy brown': '#F4A460', 'goldenrod': '#DAA520', 'dark goldenrod': '#B8860B', 
-            'peru': '#CD853F', 'chocolate': '#D2691E', 'saddle brown': '#8B4513', 'sienna': '#A0522D', 
-            'brown': '#A52A2A', 'matte brown': '#5D4037', 'metallic copper': '#D1793B', 'metallic brown': '#3E2723', 
-            'maroon': '#800000', 'zinnwaldite brown': '#2C1608', 'white': '#F0F0F0', 'matte white': '#F0F0F0', 
-            'metallic white': '#ECEFF1', 'snow': '#FFFAFA', 'honey dew': '#F0FFF0', 'mint cream': '#F5FFFA', 'mint': '#3EB489',
-            'azure': '#F0FFFF', 'alice blue': '#F0F8FF', 'ghost white': '#F8F8FF', 'white smoke': '#F5F5F5', 
-            'sea shell': '#FFF5EE', 'beige': '#F5F5DC', 'old lace': '#FDF5E6', 'floral white': '#FFFAF0', 
-            'ivory': '#FFFFF0', 'antique white': '#FAEBD7', 'linen': '#FAF0E6', 'lavender blush': '#FFF0F5', 
-            'gainsboro': '#DCDCDC', 'light gray': '#D3D3D3', 'silver': '#C0C0C0', 'dark gray': '#A9A9A9', 
-            'gray': '#808080', 'grey': '#808080', 'matte gray': '#757575', 'metallic gray': '#616161', 
-            'silver gray metallic': '#8A92A6', 'dim gray': '#696969', 'lavender gray': '#C3C5C9', 
-            'light slate gray': '#778899', 'slate gray': '#708090', 'dark slate gray': '#2F4F4F', 
-            'black': '#000000', 'matte black': '#28282B', 'velvet black': '#171717', 'metallic black': '#424242',
-            'glossy cream': '#FFFDD0', 'light brown': '#C4A484', 'gold metallic': '#D4AF37',
-            'glossy sky blue': '#87CEEB', 'glossy light blue': '#87C1FF', 'electric bright sky blue': '#56DEFF'
-        };
-        
+        const dom = { body: document.body, dataInput: document.getElementById('dataInput'), pasteButton: document.getElementById('pasteButton'), submitButton: document.getElementById('submitButton'), outputSection: document.getElementById('outputSection'), extractedInfo: document.getElementById('extractedInfo'), filenameOutput: document.getElementById('filenameOutput'), copyFilenameButton: document.getElementById('copyFilenameButton'), editFilenameButton: document.getElementById('editFilenameButton'), editIcon: document.getElementById('editIcon'), saveIcon: document.getElementById('saveIcon'), messageBox: document.getElementById('messageBox'), pageTitle: document.getElementById('pageTitle'), imageInput: document.getElementById('imageInput'), fileName: document.getElementById('fileName'), submitSpinner: document.getElementById('submitSpinner'), dropZone: document.getElementById('dropZone'), ocrWarning: document.getElementById('ocrWarning'), ocrWarningHint: document.getElementById('ocrWarningHint'), imagePreviewSection: document.getElementById('imagePreviewSection'), previewImageElement: document.getElementById('previewImageElement'), ocrSourceDisplay: document.getElementById('ocrSourceDisplay') };
+        let appState = { isProcessing: false, selectedFile: null, processedData: {}, ocrSource: '' };
+        const commonColorHexMap = {'indian red':'#CD5C5C','light coral':'#F08080','salmon':'#FA8072','dark salmon':'#E9967A','light salmon':'#FFA07A','crimson':'#DC143C','red':'#FF0000','matte red':'#B33F40','glossy red':'#DD0004','light red':'#C91100','metallic red':'#B71C1C','fire brick':'#B22222','dark red':'#8B0000','alabama crimson':'#AF002A','pink':'#FFC0CB','matte pink':'#EC407A','glossy pink':'#FF35B8','metallic pink':'#AD1457','light pink':'#FFB6C1','hot pink':'#FF69B4','deep pink':'#FF1493','medium violet red':'#C71585','pale violet red':'#DB7093','soft pink':'#FFB8BF','matte soft pink':'#D288A2','coral':'#FF7F50','tomato':'#FF6347','orange red':'#FF4500','dark orange':'#FF8C00','orange':'#FFA500','matte orange':'#ED944D','metallic orange':'#E65100','gold':'#FFD700','yellow':'#FFFF00','matte yellow':'#FBC02D','metallic yellow':'#F9A825','matte gold':'#D2BF37','glossy yellow':'#FFF158','light yellow':'#FFFFE0','lemon chiffon':'#FFFACD','papaya whip':'#FFEFD5','moccasin':'#FFE4B5','peach puff':'#FFDAB9','pale goldenrod':'#EEE8AA','khaki':'#F0E68C','dark khaki':'#BDB76B','brimstone yellow':'#F4D83F','green yellow':'#ADFF2F','chartreuse':'#7FFF00','lawn green':'#7CFC00','lime':'#00FF00','matte lime':'#AFB42B','metallic lime':'#827717','lime green':'#32CD32','lime-tree green':'#7CBF4E','pale green':'#98FB98','light green':'#90EE90','medium spring green':'#00FA9A','spring green':'#00FF7F','medium sea green':'#3CB371','sea green':'#2E8B57','forest green':'#228B22','green':'#00BF00','matte green':'#48A14D','metallic green':'#1B5E20','dark green':'#006400','yellow green':'#9ACD32','olive drab':'#6B8E23','olive':'#808000','dark olive green':'#556B2F','dark sea green':'#8FBC8F','light sea green':'#20B2AA','dark cyan':'#008B8B','teal':'#008080','acid green':'#B0BF1A','aqua':'#00FFFF','cyan':'#00FFFF','matte cyan':'#00ACC1','metallic cyan':'#00838F','light cyan':'#E0FFFF','pale turquoise':'#AFEEEE','aquamarine':'#7FFFD4','turquoise':'#40E0D0','medium turquoise':'#48D1CC','dark turquoise':'#00CED1','zomp':'#39A78E','cadet blue':'#5F9EA0','steel blue':'#4682B4','light steel blue':'#B0C4DE','powder blue':'#B0E0E6','light blue':'#ADD8E6','sky blue':'#87CEEB','light sky blue':'#87CEFA','matte sky blue':'#7AAEC4','deep sky blue':'#00BFFF','dodger blue':'#1E90FF','cornflower blue':'#6495ED','matte turquoise':'#5FBDB1','medium slate blue':'#7B68EE','king blue':'#152A78','royal blue':'#4169E1','blue':'#0000FF','deep sea blue':'#015482','deep sea blue color':'#256794','matte blue':'#1976D2','metallic blue':'#0D47A1','medium blue':'#0000CD','dark blue':'#00008B','navy':'#000080','matte navy':'#283593','metallic navy':'#1A237E','midnight blue':'#191970','matte dark blue':'#0B0B60','brilliant blue':'#2752D6','air superiority blue':'#72A0C1','aero blue':'#C9FFE5','air force blue (raf)':'#5D8AA8','absolute zero':'#0048BA','aero':'#7CB9E8','zaffre':'#0014A8','lavender':'#D3D3FF','thistle':'#D8BFD8','plum':'#DDA0DD','violet':'#EE82EE','matte violet':'#8658A5','orchid':'#DA70D6','fuchsia':'#FF00FF','magenta':'#FF00FF','matte magenta':'#C2185B','metallic magenta':'#880E4F','medium orchid':'#BA55D3','medium purple':'#9370DB','rebecca purple':'#663399','blue violet':'#8A2BE2','dark violet':'#9400D3','dark orchid':'#9932CC','dark magenta':'#8B008B','purple':'#800080','matte purple':'#7B1FA2','metallic purple':'#4A148C','indigo':'#4B0082','slate blue':'#6A5ACD','dark slate blue':'#483D8B','burgundy':'#800020','matte burgundy':'#691C2D','glossy burgundy':'#800020','african violet':'#B284BE','cornsilk':'#FFF8DC','blanched almond':'#FFEBCD','bisque':'#FFE4C4','navajo white':'#FFDEAD','wheat':'#F5DEB3','burly wood':'#DEB887','tan':'#D2B48C','rosy brown':'#BC8F8F','sandy brown':'#F4A460','goldenrod':'#DAA520','dark goldenrod':'#B8860B','peru':'#CD853F','chocolate':'#D2691E','saddle brown':'#8B4513','sienna':'#A0522D','brown':'#A52A2A','matte brown':'#5D4037','metallic copper':'#D1793B','metallic brown':'#3E2723','maroon':'#800000','zinnwaldite brown':'#2C1608','white':'#F0F0F0','matte white':'#F0F0F0','metallic white':'#ECEFF1','snow':'#FFFAFA','honey dew':'#F0FFF0','mint cream':'#F5FFFA','mint':'#3EB489','azure':'#F0FFFF','alice blue':'#F0F8FF','ghost white':'#F8F8FF','white smoke':'#F5F5F5','sea shell':'#FFF5EE','beige':'#F5F5DC','old lace':'#FDF5E6','floral white':'#FFFAF0','ivory':'#FFFFF0','antique white':'#FAEBD7','linen':'#FAF0E6','lavender blush':'#FFF0F5','gainsboro':'#DCDCDC','light gray':'#D3D3D3','silver':'#C0C0C0','dark gray':'#A9A9A9','gray':'#808080','grey':'#808080','matte gray':'#757575','metallic gray':'#616161','silver gray metallic':'#8A92A6','dim gray':'#696969','lavender gray':'#C3C5C9','light slate gray':'#778899','slate gray':'#708090','dark slate gray':'#2F4F4F','black':'#000000','matte black':'#28282B','velvet black':'#171717','metallic black':'#424242','glossy cream':'#FFFDD0','light brown':'#C4A484','gold metallic':'#D4AF37','glossy sky blue':'#87CEEB','glossy light blue':'#87C1FF','electric bright sky blue':'#56DEFF'};
         const knownColorKeywords = new Set();
+        const hexCache = { get: () => JSON.parse(localStorage.getItem('hexCodeCache') || '{}'), save: (cache) => localStorage.setItem('hexCodeCache', JSON.stringify(cache)) };
 
-        function initializeKnownColorKeywords() {
-            const basicColorWords = [
-                'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'violet', 'pink', 'brown', 'black', 'white', 'gray', 'grey', 
-                'cyan', 'magenta', 'teal', 'lime', 'olive', 'maroon', 'navy', 'aqua', 'fuchsia', 'silver', 'gold', 'khaki', 
-                'coral', 'salmon', 'ivory', 'beige', 'azure', 'indigo', 'plum', 'orchid', 'thistle', 'sienna', 'peru', 'tan', 'wheat',
-                'cream', 'amber', 'bronze', 'copper', 'charcoal', 'cobalt', 'coffee', 'emerald', 'jade', 'lavender', 'lemon', 
-                'lilac', 'mustard', 'ochre', 'peach', 'pearl', 'rose', 'ruby', 'sapphire', 'scarlet', 'taupe', 'turquoise', 'ultramarine', 'vermilion', 'viridian',
-                'mint', 'tree'
-            ];
-            const modifiers = [
-                'light', 'dark', 'deep', 'pale', 'medium', 'bright', 'soft', 'hot', 'sky', 'sea', 'spring', 'forest', 'electric', 
-                'metallic', 'matte', 'glossy', 'powder', 'drab', 'chiffon', 'crimson', 'royal', 'slate', 'steel', 'smoke',
-                'ish', 'color' 
-            ];
-            basicColorWords.forEach(word => knownColorKeywords.add(word));
-            modifiers.forEach(word => knownColorKeywords.add(word));
+        function initializeApp() {
+            const colorWords = ['red','orange','yellow','green','blue','purple','violet','pink','brown','black','white','gray','grey','cyan','magenta','teal','lime','olive','maroon','navy','aqua','fuchsia','silver','gold','khaki','coral','salmon','ivory','beige','azure','indigo','plum','orchid','thistle','sienna','peru','tan','wheat','cream','amber','bronze','copper','charcoal','cobalt','coffee','emerald','jade','lavender','lemon','lilac','mustard','ochre','peach','pearl','rose','ruby','sapphire','scarlet','taupe','turquoise','ultramarine','vermilion','viridian','mint','tree'];
+            const modifiers = ['light','dark','deep','pale','medium','bright','soft','hot','sky','sea','spring','forest','electric','metallic','matte','glossy','powder','drab','chiffon','crimson','royal','slate','steel','smoke','ish','color'];
+            [...Object.keys(commonColorHexMap), ...colorWords, ...modifiers].forEach(key => key.toLowerCase().split(/[\s-]+/).forEach(word => word && knownColorKeywords.add(word.replace(/[^a-z0-9]/g, ''))));
+        }
 
-            Object.keys(commonColorHexMap).forEach(key => {
-                key.toLowerCase().split(/[\s-]+/).forEach(word => { 
-                    if (word) knownColorKeywords.add(word.replace(/[^a-z0-9]/g, '')); 
-                });
+        async function handleSubmit() {
+            if (appState.isProcessing) return;
+            setProcessingState(true);
+            clearOutput();
+            const inputText = dom.dataInput.value.trim();
+            if (inputText) processInputText(inputText);
+            else if (appState.selectedFile) await processImage(appState.selectedFile);
+            else showMessage('Please paste text or upload an image.', true);
+            setProcessingState(false);
+        }
+
+        async function processImage(imageFile) {
+            showMessage('Processing image...', false, 45000);
+            try {
+                const base64ImageData = await imageToBase64(imageFile);
+                let ocrText = '';
+                try {
+                    ocrText = await callWorkerForOcr(base64ImageData, imageFile.type);
+                    appState.ocrSource = 'Gemini';
+                } catch (error) {
+                    console.error("Primary OCR failed. Reason:", error.message);
+                    
+                    if (error.message.includes("Worker environment is not configured")) {
+                        const detailedError = `<strong>Configuration Error:</strong> Your secure API worker is not set up correctly. <br><br> Please go to your Cloudflare dashboard and verify: <br>1. In 'gemini-api-proxy' Worker > Settings > Variables, you have a variable named <strong>GEMINI_API_KEYS</strong>. <br>2. In the same section, a KV Namespace Binding named <strong>KEY_STATUS</strong> is connected.`;
+                        showMessage(detailedError, true, 0); // Show this important error permanently until reset
+                        setProcessingState(false);
+                        return; 
+                    }
+
+                    let fallbackMessage = 'Secure API failed. Falling back to Tesseract OCR...';
+                    if (error.name === 'AbortError') fallbackMessage = `API took too long (>40s). Falling back to Tesseract...`;
+                    else if (error.message.includes("cooldown") || error.message.includes("failed to process")) fallbackMessage = `All API keys are busy. Falling back to Tesseract...`;
+                    else if (error.message.includes("RETRY_FAILED")) fallbackMessage = `Secure API is overloaded. Falling back to Tesseract...`;
+                    
+                    showMessage(fallbackMessage, false, 5000);
+                    ocrText = await runTesseractOcr(imageFile);
+                    appState.ocrSource = 'Tesseract';
+                }
+                processInputText(ocrText);
+            } catch (error) {
+                showMessage(`Image processing failed: ${error.message}`, true, 5000);
+            }
+        }
+
+        function processInputText(text) {
+            if (!text) return showMessage('Input text is empty.', true);
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText","Text Color:":"textColor","Colors:":"textColor","Text Outline Color:":"outlineColor","Outline Colors:":"outlineColor","Size:":"size"};
+            const raw = {};
+            text.split('\n').forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed || ["Customizations:", "Surface 1:"].some(n => trimmed.startsWith(n))) return;
+                for (const key in keyMap) {
+                    if (trimmed.toLowerCase().startsWith(key.toLowerCase())) {
+                        raw[keyMap[key]] = trimmed.substring(key.length).trim(); return;
+                    }
+                }
             });
+            const textColor = parseColorValue(raw.textColor);
+            const outlineColor = parseColorValue(raw.outlineColor);
+            const size = formatSize(raw.size);
+            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex || 'loading', outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColor ? (outlineColor.hex || 'loading') : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
+            renderOutput();
+            fetchHexCodesAsync();
         }
-        initializeKnownColorKeywords();
-
-
-        function isValidHex(hex) {
-            if (!hex) return false;
-            return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
-        }
-
-
-        function showMessage(text, isError = false, duration = 3000) {
-            messageBox.textContent = text;
-            messageBox.className = `mt-4 text-center text-sm font-medium ${isError ? 'text-red-400' : 'text-green-400'}`;
-            messageBox.classList.remove('hidden');
-            if (messageBox.timeoutId) {
-                clearTimeout(messageBox.timeoutId);
+        
+        async function fetchHexCodesAsync() {
+            const { textColorDescriptive, outlineColorDescriptive } = appState.processedData;
+            if (textColorDescriptive && appState.processedData.textColorHex === 'loading') {
+                appState.processedData.textColorHex = await getHexCode(textColorDescriptive);
+                renderOutput();
             }
-            messageBox.timeoutId = setTimeout(() => {
-                messageBox.classList.add('hidden');
-                messageBox.timeoutId = null;
-            }, duration);
-        }
-
-        function showProcessingState(isProcessing) {
-            if (isProcessing) {
-                submitButton.disabled = true;
-                submitButton.classList.add('processing');
-                submitSpinner.classList.remove('hidden');
-            } else {
-                submitButton.disabled = false;
-                submitButton.classList.remove('processing');
-                submitSpinner.classList.add('hidden');
+            if (outlineColorDescriptive && appState.processedData.outlineColorHex === 'loading') {
+                appState.processedData.outlineColorHex = await getHexCode(outlineColorDescriptive);
+                renderOutput();
             }
         }
 
-        async function copyToClipboard(textToCopy, buttonElement) {
-            const text = String(textToCopy || '');
-            if (!text) {
-                showMessage('Nothing to copy.', true);
-                return;
-            }
-            const originalButtonClasses = buttonElement.className;
-            const originalText = buttonElement.textContent;
+        function parseColorValue(value) {
+            if (!value) return { descriptive: null, hex: null };
+            let str = value.replace(/^(?:Please\s+)?ignore\s+this\s+color.*$/i, '').trim();
+            const hex = (str.match(/#([A-Fa-f0-9]{6})\b/) || [])[0] || null;
+            const descriptive = cleanColorName(str.replace(hex || '', ''));
+            return { descriptive, hex };
+        }
 
-            buttonElement.textContent = 'Copied!';
-            buttonElement.className = 'copy-btn copied'; 
-            let copiedSuccessfully = false;
+        function cleanColorName(name) {
+            if (!name) return "";
+            let cleaned = name.replace(/\s*\(.*?\)|#\s*[A-Fa-f0-9]+/gi, ' ').replace(/([a-zA-Z])(\d)/g, '$1 $2');
+            let words = cleaned.split(/\s+/).filter(word => {
+                const cleanWord = word.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                return knownColorKeywords.has(cleanWord) || (word.includes('-') && word.split('-').every(p => knownColorKeywords.has(p.toLowerCase().replace(/[^a-z0-9]/g, '')) || p === ""));
+            });
+            cleaned = words.join(' ').replace(/\s+/g, ' ').trim();
+            return cleaned.split(' ').map(w => w.toUpperCase() === 'SC' || w.toUpperCase() === 'ITC' ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        }
+        
+        function formatSize(rawSize) {
+            if (!rawSize) return { display: null, filename: "" };
+            let str = rawSize.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
+            let display = str.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\bINCHES\b/gi, 'INCH').replace(/\s*("|\u201D)\s*/g, ' INCH ').replace(/[^a-zA-Z0-9\s.-]/g, ' ').replace(/\s+/g, ' ').trim();
+            let filename = display.replace(/\b(length|long)\b/gi, 'L').replace(/\bheight\b/gi, 'H').replace(/\bwidth\b/gi, 'W');
+            return { display, filename };
+        }
 
-            if (navigator.clipboard && window.isSecureContext) {
-                try {
-                    await navigator.clipboard.writeText(text);
-                    copiedSuccessfully = true;
-                } catch (err) {
-                    console.info('Clipboard API (navigator.clipboard.writeText) failed, attempting fallback. Error:', err.name, err.message);
-                }
-            }
+        function generateFilename() {
+            const { customText, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku } = appState.processedData;
+            const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
+            const parts = [ customText || "NoText", cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})` ];
+            return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
+        }
 
-            if (!copiedSuccessfully) {
-                try {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-                    textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "-9999px";
-                    document.body.appendChild(textArea);
-                    textArea.focus(); textArea.select();
-                    const successful = document.execCommand('copy');
-                    document.body.removeChild(textArea);
-
-                    if (successful) {
-                        copiedSuccessfully = true;
-                    } else {
-                        throw new Error('Fallback copy command (document.execCommand) failed.');
+        async function callWorkerWithRetries(payload) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
+            try {
+                const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+                
+                if (response.status >= 500) { 
+                    const errorBody = await response.json().catch(() => ({}));
+                    if (errorBody.error && (errorBody.error.includes("cooldown") || errorBody.error.includes("failed to process"))) {
+                        throw new Error(errorBody.error); 
                     }
-                } catch (err) {
-                    console.error('Fallback copy failed: ', err);
-                    showMessage('Failed to copy text. Clipboard access might be blocked.', true, 4000);
-                    buttonElement.textContent = originalText;
-                    buttonElement.className = originalButtonClasses;
-                    return; 
-                }
-            }
-
-            if (copiedSuccessfully) {
-                if (buttonElement.timeoutId) clearTimeout(buttonElement.timeoutId);
-                buttonElement.timeoutId = setTimeout(() => {
-                    buttonElement.textContent = originalText;
-                    buttonElement.className = originalButtonClasses; 
-                    buttonElement.timeoutId = null;
-                }, 1500);
-            }
-        }
-
-        function extractHexCode(text) {
-            if (!text) return null;
-            const hexRegex = /#([A-Fa-f0-9]{6})\b/g; // Only match 6-digit hex codes
-            let match = hexRegex.exec(text);
-            if (match) {
-                return match[0];
-            }
-            return null;
-        }
-
-        function parseColorValue(colorValue) {
-            if (!colorValue) return { descriptive: null, hex: null };
-            const ignorePattern = /^(?:Please\s+)?(?:ignore|ingnore)\s+this\s+color(?:\s+and(?:\s+select(?:\s+(?:fron|front|from))?)?)?.*$/i;
-            let workingString = colorValue.replace(ignorePattern, '').trim();
-            
-            const extractedHex = extractHexCode(workingString); 
-
-            let descriptivePart = workingString;
-            if (extractedHex) {
-                const hexPatternForRemoval = new RegExp(`\\s*\\(?\\s*${extractedHex.replace('#', '\\#')}\\s*\\)?`, 'gi');
-                descriptivePart = descriptivePart.replace(hexPatternForRemoval, ' ').trim();
-            }
-            descriptivePart = cleanColorNameForDisplay(descriptivePart);
-            
-            return { descriptive: descriptivePart || null, hex: extractedHex }; 
-        }
-        
-        function cleanColorNameForDisplay(colorName) {
-            if (!colorName) return "";
-            let cleaned = String(colorName);
-
-            cleaned = cleaned.replace(/\s*\([^)]*\)?\s*/g, ' '); 
-            cleaned = cleaned.replace(/\s*\[[^\]]*\]?\s*/g, ' '); 
-            cleaned = cleaned.replace(/#\s*[A-Fa-f0-9]+/gi, ' '); 
-            
-            cleaned = cleaned.replace(/([a-zA-Z]+)(\d+)/g, '$1 $2'); 
-            cleaned = cleaned.replace(/(\d+)([a-zA-Z]+)/g, '$1 $2'); 
-
-            let words = cleaned.split(/\s+/);
-            let significantWords = [];
-            for (const word of words) {
-                if (!word) continue;
-                const lowerWord = word.toLowerCase().replace(/[^a-z0-9-]/g, ''); 
-                if (knownColorKeywords.has(lowerWord)) {
-                    significantWords.push(word.replace(/[^a-zA-Z0-9-]/g, '')); 
-                } else if (word.includes('-')) { 
-                    const parts = word.split('-');
-                    if (parts.every(p => knownColorKeywords.has(p.toLowerCase().replace(/[^a-z0-9]/g, '')) || p === "" )) {
-                       significantWords.push(word.replace(/[^a-zA-Z0-9-]/g, ''));
+                    console.warn(`Worker returned server error ${response.status}. Retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                    const retryResponse = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+                    if (!retryResponse.ok) {
+                        const retryErrorBody = await retryResponse.json().catch(() => ({}));
+                        const errorMessage = retryErrorBody.error || `Retry failed with status: ${retryResponse.status}`;
+                        throw new Error("RETRY_FAILED: " + errorMessage); 
                     }
+                    return retryResponse.json();
                 }
-            }
-            cleaned = significantWords.join(" ");
-            
-            cleaned = cleaned.replace(/\s+/g, ' ').trim(); 
 
-            if (cleaned) {
-                cleaned = cleaned.split(' ').map(w => {
-                    if (w.toUpperCase() === 'SC' || w.toUpperCase() === 'ITC') return w.toUpperCase(); 
-                    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-                }).join(' ');
+                if (!response.ok) { 
+                    const errorBody = await response.json().catch(() => ({}));
+                    const errorMessage = errorBody.error || `Worker error: ${response.status}`;
+                     throw new Error(errorMessage);
+                }
+
+                return response.json();
+            } finally { 
+                clearTimeout(timeoutId); 
             }
-            return cleaned;
         }
 
-
-        function cleanColorNameForFilename(colorName) { 
-            if (!colorName) return "";
-            let cleaned = colorName.replace(/\s*\([^)]*\)\s*/g, '');
-            cleaned = cleaned.replace(/#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/gi, '');
-            cleaned = cleaned.replace(/[^a-zA-Z0-9\s-]/g, '');
-            cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            return cleaned;
+        async function callWorkerForOcr(imageData, mimeType) {
+            const result = await callWorkerWithRetries({ endpoint: 'ocr', imageData, mimeType });
+            if (result.candidates?.[0]?.content?.parts?.[0]?.text) return result.candidates[0].content.parts[0].text;
+            throw new Error("Invalid OCR response from server.");
         }
         
-        function getCanonicalColorName(colorName) {
-            if (!colorName) return "";
-            const cleaned = cleanColorNameForDisplay(colorName).toLowerCase();
-            return cleaned.split(/\s+/).filter(Boolean).sort().join(" ");
+        async function getHexCode(colorName, bypassCache = false) {
+            const canonical = colorName.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
+            const cache = hexCache.get();
+            if (!bypassCache && cache[canonical] && new Date().getTime() < cache[canonical].expiry) return cache[canonical].hex;
+            try {
+                const result = await callWorkerWithRetries({ endpoint: 'hex', colorName });
+                const hex = result.candidates?.[0]?.content?.parts?.[0]?.text.trim();
+                if (/^#([A-Fa-f0-9]{6})$/.test(hex)) {
+                    const expiry = new Date().getTime() + (30 * 24 * 60 * 60 * 1000);
+                    const currentCache = hexCache.get();
+                    currentCache[canonical] = { hex, expiry };
+                    hexCache.save(currentCache);
+                    return hex;
+                }
+            } catch (error) { console.warn(`Worker hex generation failed for "${colorName}".`, error); }
+            for (const key in commonColorHexMap) if (key.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ") === canonical) return commonColorHexMap[key];
+            return "N/A";
         }
 
-
-        function formatSizeForDisplayAndFilename(rawSizeString) {
-            if (!rawSizeString) return { display: null, filenamePart: "" };
-
-            let mainSizeString = rawSizeString.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
-            
-            const foundDimensions = [];
-            const dimensionRegexGlobal = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)(?:\s*\(\s*([^)]+?)\s*\)|(?:\s+(height|length|width|h|l|w|long))?)?/gi;
-            let match;
-
-            while ((match = dimensionRegexGlobal.exec(mainSizeString)) !== null) {
-                let value = match[1];
-                let type = null;
-                const contentInParens = match[3]; 
-                const standaloneTypeWord = match[4]; 
-                let typeCandidateRaw = "";
-
-                if (contentInParens) {
-                    typeCandidateRaw = contentInParens;
-                } else if (standaloneTypeWord) {
-                    typeCandidateRaw = standaloneTypeWord;
-                }
-                
-                if (typeCandidateRaw) {
-                    let typeCandidateCleaned = typeCandidateRaw.toLowerCase().replace(/[^a-z]/g, '');
-                    if (typeCandidateCleaned.includes("len") || typeCandidateCleaned === "l" || typeCandidateCleaned === "long") type = 'L';
-                    else if (typeCandidateCleaned.includes("hei") || typeCandidateCleaned === "h") type = 'H';
-                    else if (typeCandidateCleaned.includes("wid") || typeCandidateCleaned === "w") type = 'W';
-                }
-                
-                // Auto-correction for height
-                if (type === 'H') {
-                    const numValue = parseFloat(value);
-                    if (numValue > 7 && (numValue % 11 === 0)) {
-                        value = String(value.charAt(0));
-                    }
-                }
-
-                foundDimensions.push({ value, unit: "INCH", type });
-            }
-            
-            let lengthDim = foundDimensions.find(d => d.type === 'L');
-            let heightDim = foundDimensions.find(d => d.type === 'H');
-            let widthDim = foundDimensions.find(d => d.type === 'W');
-            
-            const untypedDims = foundDimensions.filter(d => d.type === null && d.value);
-
-            if (untypedDims.length > 0) {
-                if (!lengthDim && untypedDims.length > 0) {
-                    lengthDim = untypedDims.shift();
-                    if(lengthDim) lengthDim.type = 'L';
-                }
-                if (!heightDim && untypedDims.length > 0) {
-                    heightDim = untypedDims.shift();
-                     if(heightDim) heightDim.type = 'H';
-                }
-                if (!widthDim && untypedDims.length > 0) {
-                    widthDim = untypedDims.shift();
-                    if(widthDim) widthDim.type = 'W';
-                }
-            }
-
-            const displayParts = [];
-            if (lengthDim) displayParts.push(`${lengthDim.value} ${lengthDim.unit} ${lengthDim.type}`);
-            if (widthDim) displayParts.push(`${widthDim.value} ${widthDim.unit} ${widthDim.type}`);
-            if (heightDim) displayParts.push(`${heightDim.value} ${heightDim.unit} ${heightDim.type}`);
-
-            if (displayParts.length > 0) {
-                const finalDisplay = displayParts.join(' ');
-                return {
-                    display: finalDisplay,
-                    filenamePart: finalDisplay 
-                };
-            } else {
-                let fallbackDisplay = mainSizeString.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-                fallbackDisplay = fallbackDisplay.replace(/\bINCHES\b/gi, 'INCH').replace(/\s*("|\u201D)\s*/g, ' INCH ').trim();
-                fallbackDisplay = fallbackDisplay.replace(/[^a-zA-Z0-9\s.-]/g, ' ').replace(/\s+/g, ' ').trim(); 
-
-                let fallbackFilenamePart = fallbackDisplay;
-                if (/\b(length|long)\b/i.test(fallbackFilenamePart) && !fallbackFilenamePart.includes(" L")) {
-                    fallbackFilenamePart = fallbackFilenamePart.replace(/\b(length|long)\b/gi, 'L');
-                }
-                if (/\bheight\b/i.test(fallbackFilenamePart) && !fallbackFilenamePart.includes(" H")) {
-                    fallbackFilenamePart = fallbackFilenamePart.replace(/\bheight\b/gi, 'H');
-                }
-                 if (/\bwidth\b/i.test(fallbackFilenamePart) && !fallbackFilenamePart.includes(" W")) {
-                    fallbackFilenamePart = fallbackFilenamePart.replace(/\bwidth\b/gi, 'W');
-                }
-                fallbackFilenamePart = fallbackFilenamePart.replace(/\bINCH\b/gi, 'INCH');
-                
-                return { display: fallbackDisplay.trim() || null, filenamePart: fallbackFilenamePart.trim() || "" };
-            }
+        async function runTesseractOcr(file) {
+            showMessage('Using Tesseract OCR...', false, 20000);
+            const worker = await Tesseract.createWorker('eng+rus', 1, { logger: m => { if (m.status === 'recognizing text') showMessage(`Tesseract: Recognizing text... ${(m.progress * 100).toFixed(0)}%`, false, 20000); } });
+            const { data: { text } } = await worker.recognize(file);
+            await worker.terminate();
+            return text;
         }
 
-        function sanitizeForFilename(filenamePart) {
-            if (!filenamePart) return "";
-            return filenamePart.replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
-        }
-        
-        function updateGeneratedFilenameDisplay() {
-            let customTextPart = currentProcessedData.customText || "NoText";
-            let tcFilenamePart = cleanColorNameForFilename(currentProcessedData.textColorDescriptive);
-            let tocFilenamePart = "";
-            if (currentProcessedData.originalInputText && 
-                (currentProcessedData.originalInputText.toLowerCase().includes("text outline color:") || currentProcessedData.originalInputText.toLowerCase().includes("outline colors:")) || 
-                (currentProcessedData.outlineColorDescriptive && currentProcessedData.outlineColorDescriptive.trim() !== "")
-            ) {
-                 tocFilenamePart = cleanColorNameForFilename(currentProcessedData.outlineColorDescriptive);
-            }
-            let sizeForFilename = currentFilenameSizePart || "";
-            let skuForFilename = currentProcessedData.sku || "NoSKU";
-            
-            const tcPart = tcFilenamePart ? `(TC-${tcFilenamePart})` : "";
-            const tocPart = tocFilenamePart ? `(TOC-${tocFilenamePart})` : "";
-            const sizePart = sizeForFilename ? `(S-${sizeForFilename})` : "";
-            const skuPart = `(${skuForFilename})`;
-
-            let assembledFilename = `${customTextPart}${tcPart}${tocPart}${sizePart}${skuPart}`;
-            const generatedFilename = sanitizeForFilename(assembledFilename);
-
-            filenameOutputDiv.textContent = generatedFilename;
-            filenameOutputDiv.dataset.originalFilename = generatedFilename;
-        }
-
-        function toggleValueEdit(valueSpan, button, dataKey, label) {
-            const editSvg = button.querySelector('svg:first-child');
-            const saveSvg = button.querySelector('svg:last-child');
-
-            if (valueSpan.contentEditable === "true") {
-                valueSpan.contentEditable = "false";
-                saveSvg.classList.add('hidden');
-                editSvg.classList.remove('hidden');
-                button.title = `Edit ${label}`;
-                valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review', 'suggested-invalid-hex');
-                
-                const newValue = valueSpan.textContent.trim();
-                currentProcessedData[dataKey] = newValue;
-
-                if (dataKey === 'size') {
-                    const parsedSizeInfo = formatSizeForDisplayAndFilename(newValue);
-                    currentProcessedData.size = parsedSizeInfo.display; 
-                    currentFilenameSizePart = parsedSizeInfo.filenamePart; 
-                } else if (dataKey === 'textColorDescriptive') {
-                    currentProcessedData.textColorHex = 'loading';
-                    refreshOutputDisplay();
-                    fetchHexCodesAsync(true);
-                } else if (dataKey === 'outlineColorDescriptive') {
-                    currentProcessedData.outlineColorHex = 'loading';
-                    refreshOutputDisplay();
-                    fetchHexCodesAsync(false, true);
-                } else if (dataKey === 'textColorHex') {
-                    currentProcessedData.textColorHex = newValue; 
-                } else if (dataKey === 'outlineColorHex') {
-                    currentProcessedData.outlineColorHex = newValue; 
-                }
-                
-                refreshOutputDisplay(); 
-                showMessage(`${label} updated.`, false, 1500);
-
-            } else {
-                valueSpan.dataset.originalValue = valueSpan.textContent; 
-                valueSpan.contentEditable = "true";
-                editSvg.classList.add('hidden');
-                saveSvg.classList.remove('hidden');
-                button.title = `Save ${label}`;
-                valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
-                valueSpan.focus();
-                const range = document.createRange();
-                range.selectNodeContents(valueSpan);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-        }
-        
-        function createOutputRow(label, value, dataKey, copyValue = null, needsReview = false, descriptiveColorForSearch = null) {
-            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
-            
-            const finalCopyValue = (copyValue !== null && copyValue !== undefined) ? String(copyValue) : String(value);
-            let displayValue = String(value);
-
-            if (value === 'loading') {
-                displayValue = `<div class="hex-loader"></div> Generating...`;
-            }
-
-            const div = document.createElement('div');
-            div.className = 'output-item border-b border-slate-700';
-            
-            const labelSpan = document.createElement('span');
-            labelSpan.className = 'output-label text-slate-400';
-            labelSpan.textContent = label + ':';
-            div.appendChild(labelSpan);
-            
-            const valueSpan = document.createElement('span');
-            valueSpan.className = 'output-value text-slate-100 flex-grow';
-             if (label.includes("Hex Code")) {
-                 if (needsReview) valueSpan.classList.add('suggested-invalid-hex');
-            } else if (needsReview) {
-                 valueSpan.classList.add('needs-review');
-            }
-            valueSpan.innerHTML = displayValue;
-            valueSpan.dataset.originalValue = displayValue; 
-            div.appendChild(valueSpan);
-
-            const buttonsWrapper = document.createElement('div');
-            buttonsWrapper.className = 'flex items-center flex-shrink-0';
-
-            // --- Add Search Button for Hex Rows ---
-            if (label.includes("Hex Code")) {
-                const searchButton = document.createElement('button');
-                searchButton.className = 'search-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500';
-                searchButton.title = `Search again for ${descriptiveColorForSearch}`;
-                searchButton.innerHTML = `<svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg>`;
-                searchButton.onclick = () => forceFetchHexCode(descriptiveColorForSearch, dataKey);
-                buttonsWrapper.appendChild(searchButton);
-            }
-
-            const editButton = document.createElement('button');
-            editButton.className = 'edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500';
-            editButton.title = `Edit ${label}`;
-            editButton.innerHTML = `
-                <svg class="btn-icon" id="editIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
-                </svg>
-                <svg class="btn-icon hidden" id="saveIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                </svg>`;
-            editButton.onclick = () => toggleValueEdit(valueSpan, editButton, dataKey, label);
-            buttonsWrapper.appendChild(editButton);
-            
-            const copyButton = document.createElement('button');
-            copyButton.textContent = 'Copy';
-            copyButton.className = 'copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500';
-            copyButton.onclick = () => copyToClipboard(finalCopyValue, copyButton);
-            buttonsWrapper.appendChild(copyButton);
-            
-            div.appendChild(buttonsWrapper);
-            return div;
-        }
-
-        function refreshOutputDisplay() {
-            extractedInfoDiv.innerHTML = ''; 
-            let hasOutput = false;
-            let customTextNeedsReviewForDisplay = false;
-            
-            const { textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, originalInputText, sku, fontStyle, customText, size } = currentProcessedData;
-            
-            const outlineLabelPresentInInput = originalInputText && (originalInputText.toLowerCase().includes("text outline color:") || originalInputText.toLowerCase().includes("outline colors:"));
-
-            function addRow(label, value, dataKey, copyValue = null, needsReviewFlag = false, descriptiveColorForSearch = null) {
-                const row = createOutputRow(label, value, dataKey, copyValue, needsReviewFlag, descriptiveColorForSearch);
-                if (row) { extractedInfoDiv.appendChild(row); hasOutput = true; }
-            }
-
-            addRow('SKU', sku, 'sku', sku, sku === "NoSKU"); 
-            addRow('Font Style', fontStyle, 'fontStyle', fontStyle); 
-            
-            if (customText) {
-                const multipleSpacesRegex = /\s{2,}/;
-                const singleLettersRegex = /(?:\b[A-Z]\s){2,}[A-Z]\b/;
-                if (multipleSpacesRegex.test(customText) || singleLettersRegex.test(customText)) {
-                    customTextNeedsReviewForDisplay = true; 
-                }
-            }
-            addRow('Your custom text', customText, 'customText', customText, customTextNeedsReviewForDisplay); 
-
-            addRow('Text Color', textColorDescriptive, 'textColorDescriptive', textColorDescriptive); 
-            if (textColorHex !== null && textColorDescriptive?.toLowerCase() !== 'black') {
-                 addRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, !isValidHex(textColorHex) && textColorHex !== 'loading', textColorDescriptive); 
-            }
-            
-            if (outlineLabelPresentInInput) {
-                addRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive', outlineColorDescriptive); 
-                if (outlineColorHex !== null && outlineColorDescriptive?.toLowerCase() !== 'black') {
-                    addRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, !isValidHex(outlineColorHex) && outlineColorHex !== 'loading', outlineColorDescriptive); 
-                }
-            }
-            addRow('Size', size, 'size', size);
-
-            const fieldsWithIssues = [];
-             if (selectedFile) { 
-                if (sku === "NoSKU") fieldsWithIssues.push("SKU");
-                if (!fontStyle) fieldsWithIssues.push("Font Style");
-                if (!customText || customTextNeedsReviewForDisplay) { 
-                    if (!fieldsWithIssues.includes("Custom Text")) fieldsWithIssues.push("Custom Text");
-                }
-                if (originalInputText.toLowerCase().includes("text color:") || originalInputText.toLowerCase().includes("colors:")) {
-                    if (!textColorDescriptive) fieldsWithIssues.push("Text Color Name");
-                    if (!isValidHex(textColorHex) && textColorDescriptive?.toLowerCase() !== 'black') fieldsWithIssues.push("Text Hex Code");
-                }
-                if (outlineLabelPresentInInput) {
-                     if (!outlineColorDescriptive) fieldsWithIssues.push("Outline Color Name");
-                     if (!isValidHex(outlineColorHex) && outlineColorDescriptive?.toLowerCase() !== 'black') fieldsWithIssues.push("Outline Hex Code");
-                }
-                const hasLength = size && size.includes(" L");
-                const hasHeight = size && size.includes(" H");
-                if (originalInputText.toLowerCase().includes("size:") && (!size || !(hasLength && hasHeight))) {
-                     fieldsWithIssues.push("Size");
-                }
-                if (fieldsWithIssues.length > 0) {
-                    ocrWarningStar.classList.remove('hidden');
-                    ocrWarningHint.textContent = `Check: ${fieldsWithIssues.join(', ')}`;
-                } else {
-                    ocrWarningStar.classList.add('hidden');
-                    ocrWarningHint.textContent = '';
-                }
-            }
-
-
-            if (!hasOutput && fieldsWithIssues.length === 0) { 
-                const noDataMsg = document.createElement('p');
-                noDataMsg.textContent = 'No relevant information could be extracted.';
-                noDataMsg.className = 'text-slate-400 italic p-2';
-                extractedInfoDiv.appendChild(noDataMsg);
-            } else if (!hasOutput && fieldsWithIssues.length > 0) { 
-                 const noDataMsg = document.createElement('p');
-                noDataMsg.textContent = 'Could not extract all expected fields. Please verify.';
-                noDataMsg.className = 'text-slate-400 italic p-2';
-                extractedInfoDiv.appendChild(noDataMsg);
-            }
-
-            updateGeneratedFilenameDisplay();
-            displayFailedKeyWarning();
-        }
-
-
-        function processInputText(inputText) {
-            if (!inputText || !inputText.trim()) {
-                showMessage('Input text is empty after OCR or initial input.', true);
-                outputSection.classList.add('hidden');
-                ocrWarningStar.classList.add('hidden');
-                ocrWarningHint.textContent = '';
-                return;
-            }
-            
-            outputSection.classList.add('hidden');
-            ocrWarningStar.classList.add('hidden'); 
-            ocrWarningHint.textContent = '';
-
-            const lines = inputText.split('\n');
-            const rawValues = {};
-            const keyMap = {
-                "SKU:": "sku",
-                "Font Style:": "fontStyle",
-                "Your custom text:": "customText",
-                "Input your custom text here.:": "customText",
-                "Text Color:": "textColorFull",
-                "Colors:": "textColorFull",
-                "Text Outline Color:": "outlineColorFull",
-                "Outline Colors:": "outlineColorFull",
-                "Size:": "size"
+        function renderOutput() {
+            dom.extractedInfo.innerHTML = '';
+            const { sku, fontStyle, customText, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const createRow = (label, value, dataKey, copyValue = null, needsReview = false, descColorForSearch = null) => {
+                if (value === null || value === undefined) return;
+                const row = document.createElement('div');
+                row.className = 'output-item border-b border-slate-700';
+                const valueHTML = value === 'loading' ? `<div class="hex-loader"></div> Generating...` : String(value);
+                row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow ${needsReview ? (label.includes('Hex') ? 'suggested-invalid-hex' : 'needs-review') : ''}" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0">${label.includes("Hex Code") ? `<button class="search-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Search again for ${descColorForSearch}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg></button>` : ''}<button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
+                dom.extractedInfo.appendChild(row);
+                row.querySelector('.search-btn')?.addEventListener('click', () => { appState.processedData[dataKey] = 'loading'; renderOutput(); getHexCode(descColorForSearch, true).then(hex => { appState.processedData[dataKey] = hex; renderOutput(); }); });
+                row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
+                row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(copyValue !== null ? String(copyValue) : String(value), e.currentTarget));
             };
-            const noiseLines = ["Customizations:", "Surface 1:"];
-
-            for(const line of lines) {
-                const trimmedLine = line.trim();
-                if(!trimmedLine) continue;
-                if(noiseLines.some(noise => trimmedLine.startsWith(noise))) continue;
-                
-                let keyFound = false;
-                for(const key in keyMap) {
-                    if(trimmedLine.toLowerCase().startsWith(key.toLowerCase())) {
-                        const value = trimmedLine.substring(key.length).trim();
-                        rawValues[keyMap[key]] = value;
-                        keyFound = true;
-                        break; 
-                    }
-                }
+            const outlineInSource = originalInput?.toLowerCase().includes("outline");
+            createRow('SKU', sku, 'sku', sku, sku === "NoSKU");
+            createRow('Font Style', fontStyle, 'fontStyle');
+            createRow('Your custom text', customText, 'customText', customText, customText && (/\s{2,}/.test(customText) || /(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)));
+            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') createRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex), textColorDescriptive);
+            if (outlineInSource) {
+                 createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
+                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, outlineColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(outlineColorHex), outlineColorDescriptive);
             }
-
-            let processedSku = rawValues.sku || "NoSKU";
-            if (processedSku !== "NoSKU") {
-                processedSku = processedSku.replace(/_/g, '-');
-                if (processedSku === "SC-MTO-25") {
-                    processedSku = "SC-MСТО-25";
-                }
-            }
-
-            const textColorParsed = parseColorValue(rawValues.textColorFull);
-            const outlineColorParsed = parseColorValue(rawValues.outlineColorFull);
-            
-            let displaySize = null;
-            let filenameSizeForPart = "";
-            if (rawValues.size) {
-                const parsedSizeInfo = formatSizeForDisplayAndFilename(rawValues.size);
-                displaySize = parsedSizeInfo.display;
-                filenameSizeForPart = parsedSizeInfo.filenamePart;
-            }
-
-            currentProcessedData = { 
-                sku: processedSku, 
-                fontStyle: rawValues.fontStyle || null, 
-                customText: rawValues.customText || null, 
-                textColorDescriptive: textColorParsed.descriptive, 
-                textColorHex: textColorParsed.hex || 'loading', 
-                outlineColorDescriptive: outlineColorParsed.descriptive, 
-                outlineColorHex: (rawValues.outlineColorFull) ? (outlineColorParsed.hex || 'loading') : null,
-                size: displaySize,
-                originalInputText: inputText 
-            };
-            currentFilenameSizePart = filenameSizeForPart;
-            
-            refreshOutputDisplay(); 
-            
-            if (extractedInfoDiv.hasChildNodes() || filenameOutputDiv.textContent.trim() !== "") {
-                outputSection.classList.remove('hidden');
-                outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                if (selectedFile) { 
-                    imagePreviewSection.classList.remove('hidden');
-                }
-                hasProcessedOnce = true;
-                fetchHexCodesAsync(textColorParsed.hex === null, (rawValues.outlineColorFull && outlineColorParsed.hex === null));
-            } else {
-                showMessage('No data to display after processing.', true);
-                imagePreviewSection.classList.add('hidden'); 
-            }
+            createRow('Size', sizeDisplay, 'sizeDisplay', sizeDisplay);
+            if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
+            dom.filenameOutput.textContent = generateFilename();
+            dom.filenameOutput.dataset.originalValue = dom.filenameOutput.textContent;
+            dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
+            dom.outputSection.classList.remove('hidden');
+            dom.outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (appState.selectedFile) { renderOcrWarning(); dom.imagePreviewSection.classList.remove('hidden'); }
         }
-        
-        function imageToBase64(file, callback) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const base64String = event.target.result.split(',')[1];
-                callback(base64String);
-            };
-            reader.onerror = (error) => {
-                console.error("Error reading file:", error);
-                showMessage("Failed to read image file.", true);
-                callback(null);
-            };
-            reader.readAsDataURL(file);
+
+        function renderOcrWarning() {
+            const { sku, fontStyle, customText, textColorDescriptive, textColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const issues = [];
+            if (sku === "NoSKU") issues.push("SKU");
+            if (!fontStyle) issues.push("Font Style");
+            if (!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) issues.push("Custom Text");
+            if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
+            if (textColorDescriptive && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
+            if (originalInput.toLowerCase().includes("size") && (!sizeDisplay || !sizeDisplay.includes('L') || !sizeDisplay.includes('H'))) issues.push("Size");
+            dom.ocrWarning.classList.toggle('hidden', issues.length === 0);
+            dom.ocrWarningHint.textContent = issues.length > 0 ? `Check: ${issues.join(', ')}` : '';
         }
 
         function handleFileSelect(file) {
-            if (file && file.type.startsWith('image/')) {
-                if (hasProcessedOnce) {
-                    resetForm();
-                }
-                selectedFile = file; 
-                fileNameSpan.textContent = file.name; 
-                dataInput.value = '';
-                imageInput.files = createFileList(file);
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImageElement.src = e.target.result;
-                }
-                reader.readAsDataURL(file);
-
-                if (!submitButton.disabled) { 
-                    submitButton.click();
-                }
-            } else { 
-                showMessage('Please select or drop an image file.', true); 
-            }
-        }
-
-        function createFileList(file) {
-            const dataTransfer = new DataTransfer(); dataTransfer.items.add(file); return dataTransfer.files;
-        }
-
-        function resetForm() {
-            dataInput.value = ''; outputSection.classList.add('hidden'); extractedInfoDiv.innerHTML = '';
-            filenameOutputDiv.textContent = '';
-            filenameOutputDiv.classList.remove('text-red-400', 'italic');
-            filenameOutputDiv.classList.add('text-slate-200');
-            filenameOutputDiv.contentEditable = "false";
-            editIcon.classList.remove('hidden');
-            saveIcon.classList.add('hidden');
-            editFilenameButton.title = "Edit Filename";
-
-            imageInput.value = ''; selectedFile = null; fileNameSpan.textContent = 'No file chosen';
-            ocrWarningStar.classList.add('hidden');
-            ocrWarningHint.textContent = '';
-            imagePreviewSection.classList.add('hidden');
-            previewImageElement.src = "#";
-            
-            usedOcrEngines.clear();
-            ocrSourceDisplay.textContent = '';
-            
-            showMessage('Form reset.');
-            hasProcessedOnce = false;
-            currentProcessedData = {};
-            currentFilenameSizePart = "";
-        }
-
-        pasteButton.addEventListener('click', async () => {
-            if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    dataInput.value = text;
-                    imageInput.value = '';
-                    selectedFile = null;
-                    fileNameSpan.textContent = 'No file chosen';
-                    showMessage('Text pasted successfully! Starting extraction...', false, 2000);
-                    hasProcessedOnce = false;
-                    ocrWarningStar.classList.add('hidden');
-                    ocrWarningHint.textContent = '';
-                    imagePreviewSection.classList.add('hidden');
-                    previewImageElement.src = "#";
-                    
-                    if (!submitButton.disabled) {
-                        submitButton.click();
-                    }
-
-                } catch (err) {
-                    console.error('Clipboard read failed: ', err);
-                    showMessage('Auto-paste failed. Please paste manually.', true, 4000);
-                }
-            } else {
-                showMessage('Clipboard paste not available/supported (requires HTTPS).', true, 4000);
-            }
-        });
-
-        imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
-
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault(); 
-            event.stopPropagation(); 
-            dropZone.classList.add('dragover', 'bg-blue-900/60', 'border-blue-500');
-            dropZone.classList.remove('bg-slate-700', 'border-slate-600');
-        });
-        dropZone.addEventListener('dragleave', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.classList.remove('dragover', 'bg-blue-900/60', 'border-blue-500');
-            dropZone.classList.add('bg-slate-700', 'border-slate-600');
-        });
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            event.stopPropagation(); 
-            dropZone.classList.remove('dragover', 'bg-blue-900/60', 'border-blue-500');
-            dropZone.classList.add('bg-slate-700', 'border-slate-600');
-            
-            if (event.dataTransfer?.items) {
-                if (event.dataTransfer.items.length === 1 && event.dataTransfer.items[0].kind === 'file') {
-                    const file = event.dataTransfer.items[0].getAsFile();
-                    if (file.type.startsWith('image/')) {
-                        handleFileSelect(file);
-                    } else {
-                        showMessage('Please drop an image file.', true);
-                    }
-                } else if (event.dataTransfer.items.length > 1) showMessage('Please drop only one image file.', true);
-                else showMessage('Please drop an image file.', true);
-            } else if (event.dataTransfer?.files) { 
-                if (event.dataTransfer.files.length === 1 && event.dataTransfer.files[0].type.startsWith('image/')) {
-                    handleFileSelect(event.dataTransfer.files[0]);
-                } else if (event.dataTransfer.files.length > 1) showMessage('Please drop only one image file.', true);
-                else showMessage('Please drop an image file.', true);
-            }
-        });
-
-        window.addEventListener('dragover', (event) => {
-            event.preventDefault(); 
-        }, false);
-
-        window.addEventListener('drop', (event) => {
-            event.preventDefault(); 
-            
-            if (event.dataTransfer?.items) {
-                if (event.dataTransfer.items.length === 1 && event.dataTransfer.items[0].kind === 'file') {
-                    const file = event.dataTransfer.items[0].getAsFile();
-                     if (file.type.startsWith('image/')) {
-                        handleFileSelect(file);
-                    }
-                }
-            } else if (event.dataTransfer?.files) { 
-                if (event.dataTransfer.files.length === 1 && event.dataTransfer.files[0].type.startsWith('image/')) {
-                    handleFileSelect(event.dataTransfer.files[0]);
-                }
-            }
-             dropZone.classList.remove('dragover', 'bg-blue-900/60', 'border-blue-500');
-             dropZone.classList.add('bg-slate-700', 'border-slate-600');
-        }, false);
-
-        function updateOcrSourceDisplay() {
-            if (usedOcrEngines.size === 0) {
-                ocrSourceDisplay.textContent = '';
-                return;
-            }
-            const sources = Array.from(usedOcrEngines).join(' & ');
-            ocrSourceDisplay.textContent = `By ${sources}`;
-        }
-
-        async function runTesseractOcr(imageFile) {
-            showMessage('Using Tesseract OCR...', false, 20000);
-            const worker = await Tesseract.createWorker('eng+rus', 1, {
-                logger: m => {
-                    if (m.status === 'recognizing text') {
-                        const progress = (m.progress * 100).toFixed(0);
-                        showMessage(`Tesseract: Recognizing text... ${progress}%`, false, 20000);
-                    }
-                },
-            });
-            const { data: { text } } = await worker.recognize(imageFile);
-            await worker.terminate();
-            console.log("Tesseract OCR Result:", text);
-            return text;
-        }
-        
-        // UPDATED: Calls the secure Worker instead of Google directly
-        async function callGeminiApiForOcr(base64ImageData, mimeType) {
-            const workerUrl = 'https://gemini-api.aurtho.com'; 
-
-            const payload = {
-                endpoint: 'ocr',
-                imageData: base64ImageData,
-                mimeType: mimeType
-            };
-
-            try {
-                const response = await fetch(workerUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Worker API Error: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-                    const extractedText = result.candidates[0].content.parts[0].text;
-                    console.log("Gemini OCR Result from Worker:", extractedText);
-                    return extractedText;
-                } else {
-                    console.error("Worker Error: No valid content in response", result);
-                    throw new Error("Could not extract text via Worker.");
-                }
-            } catch (error) {
-                console.error("Failed to fetch from Worker:", error);
-                throw error;
-            }
-        }
-
-        // UPDATED: Simplified to handle the secure Worker and Tesseract fallback
-        async function handleSubmitImage(imageFile) {
-            showProcessingState(true);
-            showMessage('Processing image... this may take a moment.', false, 20000);
-
-            imageToBase64(imageFile, async (base64ImageData) => {
-                if (!base64ImageData) {
-                    showProcessingState(false);
-                    return;
-                }
-
-                let ocrText = '';
-                try {
-                    // Try to get text using our new secure Worker
-                    ocrText = await callGeminiApiForOcr(base64ImageData, imageFile.type);
-                    usedOcrEngines.add('Gemini');
-                } catch (geminiError) {
-                    console.error("Gemini via Worker failed. Falling back to Tesseract.", geminiError);
-                    showMessage('Secure API is busy. Falling back to Tesseract OCR...', false, 5000);
-                    
-                    // Fallback to Tesseract if the Worker fails
-                    try {
-                        ocrText = await runTesseractOcr(imageFile);
-                        usedOcrEngines.add('Tesseract');
-                    } catch (tesseractError) {
-                        console.error("Tesseract OCR also failed.", tesseractError);
-                        showMessage(`OCR Failed: ${tesseractError.message || 'Tesseract error'}`, true, 5000);
-                    }
-                }
-
-                processInputText(ocrText);
-                updateOcrSourceDisplay();
-                showProcessingState(false);
-            });
-        }
-
-
-        submitButton.addEventListener('click', async () => {
-            if (submitButton.disabled) return;
-            const inputText = dataInput.value;
-            const imageFile = selectedFile;
-
-            if (inputText.trim()) {
-                ocrWarningStar.classList.add('hidden');
-                ocrWarningHint.textContent = '';
-                imagePreviewSection.classList.add('hidden');
-                previewImageElement.src = "#";
-                processInputText(inputText);
-            } else if (imageFile) {
-                handleSubmitImage(imageFile);
-            } else {
-                showMessage('Please paste text or upload an image first.', true);
-                outputSection.classList.add('hidden');
-                ocrWarningStar.classList.add('hidden');
-                ocrWarningHint.textContent = '';
-                imagePreviewSection.classList.add('hidden');
-                previewImageElement.src = "#";
-            }
-        });
-
-        editFilenameButton.addEventListener('click', () => {
-            if (filenameOutputDiv.contentEditable === "true") {
-                filenameOutputDiv.contentEditable = "false";
-                saveIcon.classList.add('hidden');
-                editIcon.classList.remove('hidden');
-                editFilenameButton.title = "Edit Filename";
-                filenameOutputDiv.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
-                 showMessage('Filename saved.', false, 1500);
-            } else {
-                filenameOutputDiv.contentEditable = "true";
-                editIcon.classList.add('hidden');
-                saveIcon.classList.remove('hidden');
-                editFilenameButton.title = "Save Filename";
-                filenameOutputDiv.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
-                filenameOutputDiv.focus();
-                const range = document.createRange();
-                range.selectNodeContents(filenameOutputDiv);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-        });
-
-        copyFilenameButton.addEventListener('click', () => {
-            const filenameToCopy = filenameOutputDiv.textContent;
-            if (!filenameToCopy.startsWith("Error")) {
-                copyToClipboard(filenameToCopy, copyFilenameButton);
-            } else { showMessage('Cannot copy error message.', true); }
-        });
-
-        pageTitle.addEventListener('click', resetForm);
-
-        document.addEventListener('keydown', (event) => {
-            const activeElement = document.activeElement;
-            const targetTagName = activeElement ? activeElement.tagName.toLowerCase() : '';
-            
-            const isEditingFilename = filenameOutputDiv.contentEditable === "true";
-            const isEditingOutputValue = activeElement && activeElement.classList.contains('output-value') && activeElement.contentEditable === "true";
-            
-            const isTypingArea = targetTagName === 'textarea' || 
-                                 targetTagName === 'input' || 
-                                 (activeElement && activeElement.isContentEditable && !isEditingFilename && !isEditingOutputValue);
-
-
-            if (event.key === 'Enter') {
-                if (isEditingFilename) {
-                    event.preventDefault(); 
-                    editFilenameButton.click(); 
-                } else if (isEditingOutputValue) {
-                    event.preventDefault();
-                    const editBtn = activeElement.closest('.output-item').querySelector('.edit-btn');
-                    if(editBtn) editBtn.click();
-                }
-                 else if (!isTypingArea && targetTagName !== 'button' && !submitButton.disabled) {
-                    event.preventDefault(); 
-                    submitButton.click();
-                }
-            } else if (event.key === 'Backspace' && !isTypingArea && !isEditingFilename && !isEditingOutputValue) {
-                event.preventDefault(); 
+            if (file?.type.startsWith('image/')) {
                 resetForm();
-            } else if (event.key === 'Escape') {
-                 if (isEditingFilename) {
-                     filenameOutputDiv.textContent = filenameOutputDiv.dataset.originalFilename || filenameOutputDiv.textContent;
-                     filenameOutputDiv.contentEditable = "false";
-                     saveIcon.classList.add('hidden');
-                     editIcon.classList.remove('hidden');
-                     editFilenameButton.title = "Edit Filename";
-                     filenameOutputDiv.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
-                 } else if (isEditingOutputValue) {
-                    const editBtn = activeElement.closest('.output-item').querySelector('.edit-btn');
-                    activeElement.textContent = activeElement.dataset.originalValue || activeElement.textContent;
-                    activeElement.contentEditable = "false";
-                    if(editBtn) {
-                        editBtn.querySelector('svg:first-child').classList.remove('hidden'); 
-                        editBtn.querySelector('svg:last-child').classList.add('hidden'); 
-                        editBtn.title = `Edit ${activeElement.closest('.output-item').querySelector('.output-label').textContent.slice(0,-1)}`;
-                    }
-                    activeElement.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
-                 }
+                appState.selectedFile = file;
+                dom.fileName.textContent = file.name;
+                dom.dataInput.value = '';
+                dom.previewImageElement.src = URL.createObjectURL(file);
+                handleSubmit();
+            } else showMessage('Please select or drop a valid image file.', true);
+        }
+        
+        function handleValueEdit(valueSpan, button, dataKey, label) {
+            const isEditing = valueSpan.isContentEditable;
+            const [editSvg, saveSvg] = button.children;
+            valueSpan.contentEditable = !isEditing;
+            saveSvg.classList.toggle('hidden', isEditing); editSvg.classList.toggle('hidden', !isEditing);
+            button.title = isEditing ? `Edit ${label}` : `Save ${label}`;
+            if (isEditing) {
+                valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
+                const newValue = valueSpan.textContent.trim();
+                if (dataKey === 'sizeDisplay') {
+                    const newSize = formatSize(newValue);
+                    appState.processedData.sizeDisplay = newSize.display; appState.processedData.sizeFilename = newSize.filename;
+                } else if (dataKey.endsWith('Descriptive')) {
+                    appState.processedData[dataKey.replace('Descriptive', 'Hex')] = 'loading';
+                }
+                appState.processedData[dataKey] = newValue;
+                renderOutput(); fetchHexCodesAsync();
+            } else { valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700'); valueSpan.focus(); document.execCommand('selectAll', false, null); }
+        }
+        
+        function handleFilenameEdit(isEditing) {
+             dom.filenameOutput.contentEditable = !isEditing;
+             dom.saveIcon.classList.toggle('hidden', isEditing); dom.editIcon.classList.toggle('hidden', !isEditing);
+             dom.editFilenameButton.title = isEditing ? "Edit Filename" : "Save Filename";
+             dom.filenameOutput.classList.toggle('focus:ring-2', !isEditing); dom.filenameOutput.classList.toggle('focus:ring-indigo-400', !isEditing); dom.filenameOutput.classList.toggle('bg-slate-700', !isEditing);
+             if (!isEditing) { dom.filenameOutput.focus(); document.execCommand('selectAll', false, null); }
+        }
+        
+        function resetForm() {
+            appState = { isProcessing: false, selectedFile: null, processedData: {}, ocrSource: '' };
+            dom.dataInput.value = ''; dom.imageInput.value = ''; dom.fileName.textContent = 'No file chosen';
+            clearOutput(); showMessage('Form reset.', false, 3000);
+        }
+
+        function clearOutput() {
+            dom.outputSection.classList.add('hidden'); dom.imagePreviewSection.classList.add('hidden');
+            dom.extractedInfo.innerHTML = ''; dom.filenameOutput.textContent = '';
+            dom.ocrWarning.classList.add('hidden'); dom.ocrWarningHint.textContent = '';
+            dom.ocrSourceDisplay.textContent = '';
+        }
+
+        function setProcessingState(isProcessing) {
+            appState.isProcessing = isProcessing;
+            dom.submitButton.disabled = isProcessing;
+            dom.submitButton.classList.toggle('processing', isProcessing);
+            dom.submitSpinner.classList.toggle('hidden', !isProcessing);
+        }
+
+        function showMessage(text, isError = false, duration = 3000) {
+            clearTimeout(dom.messageBox.timeoutId);
+            dom.messageBox.innerHTML = text; // Use innerHTML to allow for formatted messages
+            dom.messageBox.className = `text-sm font-medium ${isError ? 'text-red-400' : 'text-green-400'}`;
+            dom.messageBox.classList.remove('hidden');
+            if (duration > 0) {
+                dom.messageBox.timeoutId = setTimeout(() => dom.messageBox.classList.add('hidden'), duration);
             }
+        }
+        
+        async function copyToClipboard(text, button) {
+            if (!text) return showMessage('Nothing to copy.', true);
+            const originalText = button.textContent;
+            button.textContent = 'Copied!'; button.classList.add('copied');
+            try { await navigator.clipboard.writeText(text); } catch (err) { showMessage('Failed to copy.', true); }
+            finally { setTimeout(() => { button.textContent = originalText; button.classList.remove('copied'); }, 1500); }
+        }
+
+        const imageToBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file);
+        });
+        
+        function setupDragAndDropListeners() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                const handleGlobalDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
+                window.addEventListener(eventName, handleGlobalDrag, false);
+                const handleZoneHighlight = (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const isOver = eventName === 'dragenter' || eventName === 'dragover';
+                    dom.dropZone.classList.toggle('bg-blue-900/60', isOver);
+                    dom.dropZone.classList.toggle('border-blue-500', isOver);
+                };
+                dom.dropZone.addEventListener(eventName, handleZoneHighlight, false);
+            });
+            window.addEventListener('dragenter', () => dom.body.classList.add('dragging'));
+            window.addEventListener('drop', e => {
+                dom.body.classList.remove('dragging');
+                if (e.dataTransfer?.files[0]) handleFileSelect(e.dataTransfer.files[0]);
+            });
+        }
+        
+        dom.submitButton.addEventListener('click', handleSubmit);
+        dom.pageTitle.addEventListener('click', resetForm);
+        dom.imageInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        dom.pasteButton.addEventListener('click', async () => { try { resetForm(); dom.dataInput.value = await navigator.clipboard.readText(); handleSubmit(); } catch (err) { showMessage('Auto-paste failed. Please paste manually.', true); } });
+        dom.copyFilenameButton.addEventListener('click', () => copyToClipboard(dom.filenameOutput.textContent, dom.copyFilenameButton));
+        dom.editFilenameButton.addEventListener('click', () => handleFilenameEdit(dom.filenameOutput.isContentEditable));
+        document.addEventListener('keydown', (e) => {
+            const active = document.activeElement, isEditing = active.isContentEditable || ['TEXTAREA', 'INPUT'].includes(active.tagName);
+            if (e.key === 'Enter' && !isEditing && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+            if (e.key === 'Backspace' && !isEditing) { e.preventDefault(); resetForm(); }
         });
 
-        // --- Asynchronous Hex Code Fetching Logic ---
-
-        async function forceFetchHexCode(descriptiveColor, hexDataKey) {
-            if (!descriptiveColor) {
-                showMessage("No color name to search for.", true);
-                return;
-            }
-            
-            currentProcessedData[hexDataKey] = 'loading';
-            refreshOutputDisplay();
-
-            const hex = await getHexCode(descriptiveColor, true); // true to bypass cache
-            currentProcessedData[hexDataKey] = hex;
-            
-            refreshOutputDisplay();
-        }
-
-        async function fetchHexCodesAsync(fetchText, fetchOutline) {
-            if (fetchText && currentProcessedData.textColorDescriptive) {
-                const hex = await getHexCode(currentProcessedData.textColorDescriptive);
-                currentProcessedData.textColorHex = hex;
-                refreshOutputDisplay();
-            }
-            if (fetchOutline && currentProcessedData.outlineColorDescriptive) {
-                const hex = await getHexCode(currentProcessedData.outlineColorDescriptive);
-                currentProcessedData.outlineColorHex = hex;
-                refreshOutputDisplay();
-            }
-        }
-
-        async function getHexCode(colorName, bypassCache = false) {
-            const canonicalName = getCanonicalColorName(colorName);
-            const hexCache = getHexCache();
-
-            // Priority 1: Check cache, unless bypassed
-            if (!bypassCache && hexCache[canonicalName]) {
-                const cachedData = hexCache[canonicalName];
-                const now = new Date().getTime();
-                const COOLDOWN_PERIOD = 30 * 24 * 60 * 60 * 1000;
-                if (now < cachedData.expiry) {
-                    return cachedData.hex;
-                }
-            }
-
-            // Priority 2: Use Gemini API via Worker if available
-            try {
-                const geminiHex = await callGeminiForHexCode(colorName);
-                if (isValidHex(geminiHex)) {
-                    const COOLDOWN_PERIOD = 30 * 24 * 60 * 60 * 1000;
-                    const expiry = new Date().getTime() + COOLDOWN_PERIOD; // 30-day cache
-                    const currentCache = getHexCache();
-                    currentCache[canonicalName] = { hex: geminiHex, expiry: expiry };
-                    saveHexCache(currentCache);
-                    return geminiHex;
-                }
-            } catch (error) {
-                console.warn(`Gemini hex code generation for "${colorName}" failed. Falling back.`, error);
-            }
-            
-            // Priority 3 (Fallback): Check our internal, trusted database
-            const localHex = getHexFromLocalDB(colorName);
-            if(localHex !== "N/A") {
-                return localHex;
-            }
-
-            // Final Fallback
-            return "N/A";
-        }
-        
-        function getHexFromLocalDB(colorName) {
-            const canonicalName = getCanonicalColorName(colorName);
-            for (const mapKey in commonColorHexMap) {
-                if (getCanonicalColorName(mapKey) === canonicalName) {
-                    return commonColorHexMap[mapKey];
-                }
-            }
-            return "N/A";
-        }
-
-        // UPDATED: Calls the secure Worker instead of Google directly
-        async function callGeminiForHexCode(colorName) {
-            const workerUrl = 'https://gemini-api.aurtho.com';
-
-            const payload = {
-                endpoint: 'hex',
-                colorName: colorName
-            };
-
-            try {
-                const response = await fetch(workerUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Worker API Error: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-                    const text = result.candidates[0].content.parts[0].text.trim();
-                    if (isValidHex(text)) {
-                        return text;
-                    }
-                }
-                throw new Error("Invalid or no hex code in Worker response.");
-            } catch (error) {
-                console.error(`callGeminiForHexCode via Worker failed:`, error.message);
-                throw error;
-            }
-        }
-        
-        function displayFailedKeyWarning() {
-            // This function is no longer needed as keys are managed on the server.
-            // It's safe to leave it empty or remove it.
-            failedKeyWarningDiv.classList.add('hidden');
-            failedKeyWarningDiv.innerHTML = '';
-        }
-
+        initializeApp();
+        setupDragAndDropListeners();
+    });
     </script>
 </body>
 </html>
