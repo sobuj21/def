@@ -132,21 +132,25 @@
 
         async function handleSubmit() {
             if (appState.isProcessing) return;
-            setProcessingState(true);
+            setProcessingState(true, 'Processing...');
             clearOutput();
             const inputText = dom.dataInput.value.trim();
-            if (inputText) {
-                processInputText(inputText);
-            } else if (appState.selectedFile) {
-                await processImage(appState.selectedFile);
-            } else {
-                showMessage('Please paste text or upload an image.', true);
+            try {
+                if (inputText) {
+                    await processInputText(inputText);
+                } else if (appState.selectedFile) {
+                    await processImage(appState.selectedFile);
+                } else {
+                    showMessage('Please paste text or upload an image.', true);
+                }
+            } catch (error) {
+                 showMessage(`An unexpected error occurred: ${error.message}`, true, 5000);
+            } finally {
+                setProcessingState(false);
             }
-            setProcessingState(false);
         }
 
         async function processImage(imageFile) {
-            showMessage('Processing image...', false, 45000);
             try {
                 const base64ImageData = await imageToBase64(imageFile);
                 let ocrText = '';
@@ -159,31 +163,33 @@
                     if (error.message.includes("Worker environment is not configured")) {
                         const detailedError = `<strong>Configuration Error:</strong> Your secure API worker is not set up correctly. <br><br> Please go to your Cloudflare dashboard and verify: <br>1. In 'gemini-api-proxy' Worker > Settings > Variables, you have a variable named <strong>GEMINI_API_KEYS</strong>. <br>2. In the same section, a KV Namespace Binding named <strong>KEY_STATUS</strong> is connected.`;
                         showMessage(detailedError, true, 0); // Show this important error permanently until reset
-                        setProcessingState(false);
-                        return; 
+                        throw new Error("Configuration error displayed to user.");
                     }
 
                     let fallbackMessage = 'Secure API failed. Falling back to Tesseract OCR...';
-                    if (error.name === 'AbortError') {
-                        fallbackMessage = `API took too long (>40s). Falling back to Tesseract...`;
-                    } else if (error.message.includes("cooldown") || error.message.includes("failed to process")) {
-                        fallbackMessage = `All API keys are busy. Falling back to Tesseract...`;
-                    } else if (error.message.includes("RETRY_FAILED")) {
-                        fallbackMessage = `Secure API is overloaded. Falling back to Tesseract...`;
-                    }
+                    if (error.name === 'AbortError') fallbackMessage = `API took too long (>40s). Falling back to Tesseract...`;
+                    else if (error.message.includes("cooldown") || error.message.includes("failed to process")) fallbackMessage = `All API keys are busy. Falling back to Tesseract...`;
+                    else if (error.message.includes("RETRY_FAILED")) fallbackMessage = `Secure API is overloaded. Falling back to Tesseract...`;
                     
                     showMessage(fallbackMessage, false, 5000);
                     ocrText = await runTesseractOcr(imageFile);
                     appState.ocrSource = 'Tesseract';
                 }
-                processInputText(ocrText);
+                await processInputText(ocrText);
             } catch (error) {
-                showMessage(`Image processing failed: ${error.message}`, true, 5000);
+                if (!error.message.includes("Configuration error")) {
+                    showMessage(`Image processing failed: ${error.message}`, true, 5000);
+                }
+                // Rethrow to be caught by handleSubmit's finally block
+                throw error;
             }
         }
 
-        function processInputText(text) {
-            if (!text) return showMessage('Input text is empty.', true);
+        async function processInputText(text) {
+            if (!text) {
+                showMessage('Input text is empty.', true);
+                return;
+            }
             const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText","Text Color:":"textColor","Colors:":"textColor","Text Outline Color:":"outlineColor","Outline Colors:":"outlineColor","Size:":"size"};
             const raw = {};
             text.split('\n').forEach(line => {
@@ -200,18 +206,21 @@
             const size = formatSize(raw.size);
             appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex || 'loading', outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColor ? (outlineColor.hex || 'loading') : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
             renderOutput();
-            fetchHexCodesAsync();
+            await fetchHexCodesAsync();
         }
         
         async function fetchHexCodesAsync() {
             const { textColorDescriptive, outlineColorDescriptive } = appState.processedData;
+            const promises = [];
             if (textColorDescriptive && appState.processedData.textColorHex === 'loading') {
-                appState.processedData.textColorHex = await getHexCode(textColorDescriptive);
-                renderOutput();
+                promises.push(getHexCode(textColorDescriptive).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && appState.processedData.outlineColorHex === 'loading') {
-                appState.processedData.outlineColorHex = await getHexCode(outlineColorDescriptive);
-                renderOutput();
+                promises.push(getHexCode(outlineColorDescriptive).then(hex => { appState.processedData.outlineColorHex = hex; }));
+            }
+            if (promises.length > 0) {
+                 await Promise.all(promises);
+                 renderOutput();
             }
         }
 
@@ -251,7 +260,6 @@
 
         async function callWorkerWithRetries(payload) {
             const jsonBody = JSON.stringify(payload);
-            
             if (!jsonBody || jsonBody === '{}') {
                 throw new Error("Client-side error: Aborting send due to empty or invalid payload.");
             }
@@ -325,8 +333,8 @@
         }
 
         async function runTesseractOcr(file) {
-            showMessage('Using Tesseract OCR...', false, 20000);
-            const worker = await Tesseract.createWorker('eng+rus', 1, { logger: m => { if (m.status === 'recognizing text') showMessage(`Tesseract: Recognizing text... ${(m.progress * 100).toFixed(0)}%`, false, 20000); } });
+            setProcessingState(true, 'Using Tesseract OCR...');
+            const worker = await Tesseract.createWorker('eng+rus', 1, { logger: m => { if (m.status === 'recognizing text') showMessage(`Tesseract: Recognizing text... ${(m.progress * 100).toFixed(0)}%`, false, 0); } });
             const { data: { text } } = await worker.recognize(file);
             await worker.terminate();
             return text;
@@ -406,7 +414,8 @@
                     appState.processedData[dataKey.replace('Descriptive', 'Hex')] = 'loading';
                 }
                 appState.processedData[dataKey] = newValue;
-                renderOutput(); fetchHexCodesAsync();
+                renderOutput(); 
+                fetchHexCodesAsync();
             } else { valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700'); valueSpan.focus(); document.execCommand('selectAll', false, null); }
         }
         
@@ -421,7 +430,8 @@
         function resetForm() {
             appState = { isProcessing: false, selectedFile: null, processedData: {}, ocrSource: '' };
             dom.dataInput.value = ''; dom.imageInput.value = ''; dom.fileName.textContent = 'No file chosen';
-            clearOutput(); showMessage('Form reset.', false, 3000);
+            clearOutput(); 
+            showMessage('Form reset.', false, 3000);
         }
 
         function clearOutput() {
@@ -431,17 +441,23 @@
             dom.ocrSourceDisplay.textContent = '';
         }
 
-        function setProcessingState(isProcessing) {
+        function setProcessingState(isProcessing, message = 'Processing...') {
             appState.isProcessing = isProcessing;
             dom.submitButton.disabled = isProcessing;
             dom.submitButton.classList.toggle('processing', isProcessing);
             dom.submitSpinner.classList.toggle('hidden', !isProcessing);
+            if (isProcessing) {
+                showMessage(message, false, 0); // Show persistent message
+            } else {
+                clearTimeout(dom.messageBox.timeoutId);
+                dom.messageBox.classList.add('hidden');
+            }
         }
 
         function showMessage(text, isError = false, duration = 3000) {
             clearTimeout(dom.messageBox.timeoutId);
-            dom.messageBox.innerHTML = text; // Use innerHTML to allow for formatted messages
-            dom.messageBox.className = `text-sm font-medium ${isError ? 'text-red-400' : 'text-green-400'}`;
+            dom.messageBox.innerHTML = text;
+            dom.messageBox.className = `p-4 rounded-md mt-4 text-center text-sm font-medium ${isError ? 'bg-red-900/50 border border-red-700 text-red-300' : 'text-green-400'}`;
             dom.messageBox.classList.remove('hidden');
             if (duration > 0) {
                 dom.messageBox.timeoutId = setTimeout(() => dom.messageBox.classList.add('hidden'), duration);
@@ -485,7 +501,7 @@
         dom.submitButton.addEventListener('click', handleSubmit);
         dom.pageTitle.addEventListener('click', resetForm);
         dom.imageInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
-        dom.pasteButton.addEventListener('click', async () => { try { resetForm(); dom.dataInput.value = await navigator.clipboard.readText(); handleSubmit(); } catch (err) { showMessage('Auto-paste failed. Please paste manually.', true); } });
+        dom.pasteButton.addEventListener('click', async () => { try { resetForm(); dom.dataInput.value = await navigator.clipboard.readText(); await handleSubmit(); } catch (err) { showMessage('Auto-paste failed. Please paste manually.', true); } });
         dom.copyFilenameButton.addEventListener('click', () => copyToClipboard(dom.filenameOutput.textContent, dom.copyFilenameButton));
         dom.editFilenameButton.addEventListener('click', () => handleFilenameEdit(dom.filenameOutput.isContentEditable));
         document.addEventListener('keydown', (e) => {
