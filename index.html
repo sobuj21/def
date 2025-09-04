@@ -120,7 +120,7 @@
         const OCR_TIMEOUT_MS = 40000;
         const dom = { body: document.body, dataInput: document.getElementById('dataInput'), pasteButton: document.getElementById('pasteButton'), submitButton: document.getElementById('submitButton'), outputSection: document.getElementById('outputSection'), extractedInfo: document.getElementById('extractedInfo'), filenameOutput: document.getElementById('filenameOutput'), copyFilenameButton: document.getElementById('copyFilenameButton'), editFilenameButton: document.getElementById('editFilenameButton'), editIcon: document.getElementById('editIcon'), saveIcon: document.getElementById('saveIcon'), messageBox: document.getElementById('messageBox'), pageTitle: document.getElementById('pageTitle'), imageInput: document.getElementById('imageInput'), fileName: document.getElementById('fileName'), submitSpinner: document.getElementById('submitSpinner'), dropZone: document.getElementById('dropZone'), ocrWarning: document.getElementById('ocrWarning'), ocrWarningHint: document.getElementById('ocrWarningHint'), imagePreviewSection: document.getElementById('imagePreviewSection'), previewImageElement: document.getElementById('previewImageElement'), ocrSourceDisplay: document.getElementById('ocrSourceDisplay') };
         let appState = { isProcessing: false, selectedFile: null, processedData: {} };
-        const commonColorHexMap = {'indian red':'#CD5C5C','light coral':'#F08080','salmon':'#FA8072','dark salmon':'#E9967A','light salmon':'#FFA07A','crimson':'#DC143C','red':'#FF0000','matte red':'#B33F40','glossy red':'#DD0004','light red':'#C91100','metallic red':'#B71C1C','fire brick':'#B22222','dark red':'#8B0000','alabama crimson':'#AF002A','pink':'#FFC0CB','matte pink':'#EC407A','glossy pink':'#FF35B8','metallic pink':'#AD1457','light pink':'#FFB6C1','hot pink':'#FF69B4','deep pink':'#FF1493','medium violet red':'#C71585','pale violet red':'#DB7093','soft pink':'#FFB8BF','matte soft pink':'#D288A2','coral':'#FF7F50','tomato':'#FF6347','orange red':'#FF4500','dark orange':'#FF8C00','orange':'#FFA500','matte orange':'#ED944D','metallic orange':'#E65100','gold':'#FFD700','yellow':'#FFFF00','matte yellow':'#FBC02D','metallic yellow':'#F9A825','matte gold':'#D2BF37','glossy yellow':'#FFF158','light yellow':'#FFFFE0','lemon chiffon':'#FFFACD','papaya whip':'#FFEFD5','moccasin':'#FFE4B5','peach puff':'#FFDAB9','pale goldenrod':'#EEE8AA','khaki':'#F0E68C','dark khaki':'#BDB76B','brimstone yellow':'#F4D83F','green yellow':'#ADFF2F','chartreuse':'#7FFF00','lawn green':'#7CFC00','lime':'#00FF00','matte lime':'#AFB42B','metallic lime':'#827717','lime green':'#32CD32','lime-tree green':'#7CBF4E','pale green':'#98FB98','light green':'#90EE90','medium spring green':'#00FA9A','spring green':'#00FF7F','medium sea green':'#3CB371','sea green':'#2E8B57','forest green':'#228B22','green':'#00BF00','matte green':'#48A14D','metallic green':'#1B5E20','dark green':'#006400','yellow green':'#9ACD32','olive drab':'#6B8E23','olive':'#808000','dark olive green':'#556B2F','dark sea green':'#8FBC8F','light sea green':'#20B2AA','dark cyan':'#008B8B','teal':'#008080','acid green':'#B0BF1A','aqua':'#00FFFF','cyan':'#00FFFF','matte cyan':'#00ACC1','metallic cyan':'#00838F','light cyan':'#E0FFFF','pale turquoise':'#AFEEEE','aquamarine':'#7FFFD4','turquoise':'#40E0D0','medium turquoise':'#48D1CC','dark turquoise':'#00CED1','zomp':'#39A78E','cadet blue':'#5F9EA0','steel blue':'#4682B4','light steel blue':'#B0C4DE','powder blue':'#B0E0E6','light blue':'#ADD8E6','sky blue':'#87CEEB','light sky blue':'#87CEFA','matte sky blue':'#7AAEC4','deep sky blue':'#00BFFF','dodger blue':'#1E90FF','cornflower blue':'#6495ED','matte turquoise':'#5FBDB1','medium slate blue':'#7B68EE','king blue':'#152A78','royal blue':'#4169E1','blue':'#0000FF','deep sea blue':'#015482','deep sea blue color':'#256794','matte blue':'#1976D2','metallic blue':'#0D47A1','medium blue':'#0000CD','dark blue':'#00008B','navy':'#000080','matte navy':'#283593','metallic navy':'#1A237E','midnight blue':'#191970','matte dark blue':'#0B0B60','brilliant blue':'#2752D6','air superiority blue':'#72A0C1','aero blue':'#C9FFE5','air force blue (raf)':'#5D8AA8','absolute zero':'#0048BA','aero':'#7CB9E8','zaffre':'#0014A8','lavender':'#D3D3FF','thistle':'#D8BFD8','plum':'#DDA0DD','violet':'#EE82EE','matte violet':'#8658A5','orchid':'#DA70D6','fuchsia':'#FF00FF','magenta':'#FF00FF','matte magenta':'#C2185B','metallic magenta':'#880E4F','medium orchid':'#BA55D3','medium purple':'#9370DB','rebecca purple':'#663399','blue violet':'#8A2BE2','dark violet':'#9400D3','dark orchid':'#9932CC','dark magenta':'#8B008B','purple':'#800080','matte purple':'#7B1FA2','metallic purple':'#4A148C','indigo':'#4B0082','slate blue':'#6A5ACD','dark slate blue':'#483D8B','burgundy':'#800020','matte burgundy':'#691C2D','glossy burgundy':'#800020','african violet':'#B284BE','cornsilk':'#FFF8DC','blanched almond':'#FFEBCD','bisque':'#FFE4C4','navajo white':'#FFDEAD','wheat':'#F5DEB3','burly wood':'#DEB887','tan':'#D2B48C','rosy brown':'#BC8F8F','sandy brown':'#F4A460','goldenrod':'#DAA520','dark goldenrod':'#B8860B','peru':'#CD853F','chocolate':'#D2691E','saddle brown':'#8B4513','sienna':'#A0522D','brown':'#A52A2A','matte brown':'#5D4037','metallic copper':'#D1793B','metallic brown':'#3E2723','maroon':'#800000','zinnwaldite brown':'#2C1608','white':'#EDEDED','matte white':'#F0F0F0','metallic white':'#ECEFF1','snow':'#FFFAFA','honey dew':'#F0FFF0','mint cream':'#F5FFFA','mint':'#3EB489','azure':'#F0FFFF','alice blue':'#F0F8FF','ghost white':'#F8F8FF','white smoke':'#F5F5F5','sea shell':'#FFF5EE','beige':'#F5F5DC','old lace':'#FDF5E6','floral white':'#FFFAF0','ivory':'#FFFFF0','antique white':'#FAEBD7','linen':'#FAF0E6','lavender blush':'#FFF0F5','gainsboro':'#DCDCDC','light gray':'#D3D3D3','silver':'#C0C0C0','dark gray':'#A9A9A9','gray':'#808080','grey':'#808080','matte gray':'#757575','metallic gray':'#616161','silver gray metallic':'#8A92A6','dim gray':'#696969','lavender gray':'#C3C5C9','light slate gray':'#778899','slate gray':'#708090','dark slate gray':'#2F4F4F','black':'#000000','matte black':'#28282B','velvet black':'#171717','metallic black':'#424242','glossy cream':'#FFFDD0','light brown':'#C4A484','gold metallic':'#D4AF37','glossy sky blue':'#87CEEB','glossy light blue':'#87C1FF','electric bright sky blue':'#56DEFF'};
+        const commonColorHexMap = {'indian red':'#CD5C5C','light coral':'#F08080','salmon':'#FA8072','dark salmon':'#E9967A','light salmon':'#FFA07A','crimson':'#DC143C','red':'#FF0000','matte red':'#B33F40','glossy red':'#DD0004','light red':'#C91100','metallic red':'#B71C1C','fire brick':'#B22222','dark red':'#8B0000','alabama crimson':'#AF002A','pink':'#FFC0CB','matte pink':'#EC407A','glossy pink':'#FF35B8','metallic pink':'#AD1457','light pink':'#FFB6C1','hot pink':'#FF69B4','deep pink':'#FF1493','medium violet red':'#C71585','pale violet red':'#DB7093','soft pink':'#FFB8BF','matte soft pink':'#D288A2','coral':'#FF7F50','tomato':'#FF6347','orange red':'#FF4500','dark orange':'#FF8C00','orange':'#FFA500','matte orange':'#ED944D','metallic orange':'#E65100','gold':'#FFD700','yellow':'#FFFF00','matte yellow':'#FBC02D','metallic yellow':'#F9A825','matte gold':'#D2BF37','glossy yellow':'#FFF158','light yellow':'#FFFFE0','lemon chiffon':'#FFFACD','papaya whip':'#FFEFD5','moccasin':'#FFE4B5','peach puff':'#FFDAB9','pale goldenrod':'#EEE8AA','khaki':'#F0E68C','dark khaki':'#BDB76B','brimstone yellow':'#F4D83F','green yellow':'#ADFF2F','chartreuse':'#7FFF00','lawn green':'#7CFC00','lime':'#00FF00','matte lime':'#AFB42B','metallic lime':'#827717','lime green':'#32CD32','lime-tree green':'#7CBF4E','pale green':'#98FB98','light green':'#90EE90','medium spring green':'#00FA9A','spring green':'#00FF7F','medium sea green':'#3CB371','sea green':'#2E8B57','forest green':'#228B22','green':'#00BF00','matte green':'#48A14D','metallic green':'#1B5E20','dark green':'#006400','yellow green':'#9ACD32','olive drab':'#6B8E23','olive':'#808000','dark olive green':'#556B2F','dark sea green':'#8FBC8F','light sea green':'#20B2AA','dark cyan':'#008B8B','teal':'#008080','acid green':'#B0BF1A','aqua':'#00FFFF','cyan':'#00FFFF','matte cyan':'#00ACC1','metallic cyan':'#00838F','light cyan':'#E0FFFF','pale turquoise':'#AFEEEE','aquamarine':'#7FFFD4','turquoise':'#40E0D0','medium turquoise':'#48D1CC','dark turquoise':'#00CED1','zomp':'#39A78E','cadet blue':'#5F9EA0','steel blue':'#4682B4','light steel blue':'#B0C4DE','powder blue':'#B0E0E6','light blue':'#ADD8E6','sky blue':'#87CEEB','light sky blue':'#87CEFA','matte sky blue':'#7AAEC4','deep sky blue':'#00BFFF','dodger blue':'#1E90FF','cornflower blue':'#6495ED','matte turquoise':'#5FBDB1','medium slate blue':'#7B68EE','king blue':'#152A78','royal blue':'#4169E1','blue':'#0000FF','deep sea blue':'#015482','deep sea blue color':'#256794','matte blue':'#1976D2','metallic blue':'#0D47A1','medium blue':'#0000CD','dark blue':'#00008B','navy':'#000080','matte navy':'#283593','metallic navy':'#1A237E','midnight blue':'#191970','matte dark blue':'#0B0B60','brilliant blue':'#2752D6','air superiority blue':'#72A0C1','aero blue':'#C9FFE5','air force blue (raf)':'#5D8AA8','absolute zero':'#0048BA','aero':'#7CB9E8','zaffre':'#0014A8','lavender':'#D3D3FF','thistle':'#D8BFD8','plum':'#DDA0DD','violet':'#EE82EE','matte violet':'#8658A5','orchid':'#DA70D6','fuchsia':'#FF00FF','magenta':'#FF00FF','matte magenta':'#C2185B','metallic magenta':'#880E4F','medium orchid':'#BA55D3','medium purple':'#9370DB','rebecca purple':'#663399','blue violet':'#8A2BE2','dark violet':'#9400D3','dark orchid':'#9932CC','dark magenta':'#8B008B','purple':'#800080','matte purple':'#7B1FA2','metallic purple':'#4A148C','indigo':'#4B0082','slate blue':'#6A5ACD','dark slate blue':'#483D8B','burgundy':'#800020','matte burgundy':'#691C2D','glossy burgundy':'#800020','african violet':'#B284BE','cornsilk':'#FFF8DC','blanched almond':'#FFEBCD','bisque':'#FFE4C4','navajo white':'#FFDEAD','wheat':'#F5DEB3','burly wood':'#DEB887','tan':'#D2B48C','rosy brown':'#BC8F8F','sandy brown':'#F4A460','goldenrod':'#DAA520','dark goldenrod':'#B8860B','peru':'#CD853F','chocolate':'#D2691E','saddle brown':'#8B4513','sienna':'#A0522D','brown':'#A52A2A','matte brown':'#5D4037','metallic copper':'#D1793B','metallic brown':'#3E2723','maroon':'#800000','zinnwaldite brown':'#2C1608','white':'#F0F0F0','matte white':'#F0F0F0','metallic white':'#ECEFF1','snow':'#FFFAFA','honey dew':'#F0FFF0','mint cream':'#F5FFFA','mint':'#3EB489','azure':'#F0FFFF','alice blue':'#F0F8FF','ghost white':'#F8F8FF','white smoke':'#F5F5F5','sea shell':'#FFF5EE','beige':'#F5F5DC','old lace':'#FDF5E6','floral white':'#FFFAF0','ivory':'#FFFFF0','antique white':'#FAEBD7','linen':'#FAF0E6','lavender blush':'#FFF0F5','gainsboro':'#DCDCDC','light gray':'#D3D3D3','silver':'#C0C0C0','dark gray':'#A9A9A9','gray':'#808080','grey':'#808080','matte gray':'#757575','metallic gray':'#616161','silver gray metallic':'#8A92A6','dim gray':'#696969','lavender gray':'#C3C5C9','light slate gray':'#778899','slate gray':'#708090','dark slate gray':'#2F4F4F','black':'#000000','matte black':'#28282B','velvet black':'#171717','metallic black':'#424242','glossy cream':'#FFFDD0','light brown':'#C4A484','gold metallic':'#D4AF37','glossy sky blue':'#87CEEB','glossy light blue':'#87C1FF','electric bright sky blue':'#56DEFF'};
         const knownColorKeywords = new Set();
 
         // --- CORE LOGIC ---
@@ -209,10 +209,10 @@
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
             const promises = [];
             if (textColorDescriptive && textColorHex === 'loading') {
-                promises.push(getHexCode(textColorDescriptive, appState.processedData.textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
+                promises.push(getHexCode(textColorDescriptive, textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && outlineColorHex === 'loading') {
-                promises.push(getHexCode(outlineColorDescriptive, appState.processedData.outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
+                promises.push(getHexCode(outlineColorDescriptive, outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
@@ -242,14 +242,12 @@
         function formatSize(rawSize) {
             if (!rawSize) return { display: null, filename: "" };
             let str = rawSize.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
-            
             const dimensions = [];
             const dimensionRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)\s*\(([^)]+)\)/gi;
             let match;
             while ((match = dimensionRegex.exec(str)) !== null) {
-                dimensions.push({ value: match[1], unit: "INCH", type: match[3].toLowerCase() });
+                dimensions.push({ value: match[1], type: match[3].toLowerCase() });
             }
-
             const length = dimensions.find(d => d.type.includes('length') || d.type.includes('long') || d.type.includes('wide'));
             const height = dimensions.find(d => d.type.includes('height') || d.type.includes('tall'));
 
@@ -259,7 +257,22 @@
                     filename: `${length.value} INCH L ${height.value} INCH H`
                 };
             }
-            // Fallback for simpler formats
+            
+            // Fallback for formats like 18" x 1.5"
+            const genericRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?\s*x\s*(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?/i;
+            const genericMatch = str.match(genericRegex);
+            if (genericMatch) {
+                const num1 = parseFloat(genericMatch[1]);
+                const num2 = parseFloat(genericMatch[3]);
+                const lengthVal = Math.max(num1, num2);
+                const heightVal = Math.min(num1, num2);
+                 return {
+                    display: `${lengthVal} INCH Length ${heightVal} INCH Height`,
+                    filename: `${lengthVal} INCH L ${heightVal} INCH H`
+                };
+            }
+
+            // Original simpler fallback
             let display = str.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\bINCHES\b/gi, 'INCH').replace(/\s*("|\u201D)\s*/g, ' INCH ').replace(/[^a-zA-Z0-9\s.-]/g, ' ').replace(/\s+/g, ' ').trim();
             let filename = display.replace(/\b(length|long|wide)\b/gi, 'L').replace(/\b(height|tall)\b/gi, 'H');
             return { display, filename };
@@ -346,20 +359,15 @@
                 row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
                 row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
             };
-
             const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
             createRow('Your custom text', customText, 'customText');
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') {
-                createRow('Text Hex Code', textColorHex, 'textColorHex');
-            }
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
             if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
-                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') {
-                    createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex');
-                }
+                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
             createRow('Size', sizeDisplay, 'sizeDisplay');
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
@@ -506,5 +514,4 @@
     </script>
 </body>
 </html>
-
 
