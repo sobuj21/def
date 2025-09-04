@@ -336,9 +336,9 @@
         
         async function getHexCode(descriptiveColor, extractedHex) {
             if (!descriptiveColor) return "N/A";
-            if (extractedHex && /^#([A-Fa-f0-9]{6})$/.test(extractedHex)) return extractedHex;
             const canonical = descriptiveColor.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
             if (canonical === 'white') return commonColorHexMap['white'];
+            if (extractedHex && /^#([A-Fa-f0-9]{6})$/.test(extractedHex)) return extractedHex;
             for (const key in commonColorHexMap) {
                 if (key.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ") === canonical) return commonColorHexMap[key];
             }
