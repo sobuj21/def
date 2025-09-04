@@ -21,7 +21,7 @@
         .output-value { flex-grow: 1; text-align: left; word-break: break-word; margin-right: 0.5rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .output-value[contenteditable="true"] { outline: 2px solid #60a5fa; background-color: #374151; }
         .output-value.needs-review, .output-value.suggested-invalid-hex { color: #f87171; }
-        .btn, .copy-btn, .edit-btn, .search-btn { margin-left: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; transition: background-color 0.2s ease, color 0.2s ease; flex-shrink: 0; border-radius: 0.375rem; cursor: pointer; }
+        .btn, .copy-btn, .edit-btn { margin-left: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; transition: background-color 0.2s ease, color 0.2s ease; flex-shrink: 0; border-radius: 0.375rem; cursor: pointer; }
         .filename-section { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-radius: 0.375rem; }
         #filenameOutput { flex-grow: 1; margin-right: 1rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         #filenameOutput[contenteditable="true"] { outline: 2px solid #60a5fa; background-color: #374151; }
@@ -207,13 +207,13 @@
         }
         
         async function fetchHexCodesAsync() {
-            const { textColorDescriptive, outlineColorDescriptive } = appState.processedData;
+            const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
             const promises = [];
-            if (textColorDescriptive && appState.processedData.textColorHex === 'loading') {
-                promises.push(getHexCode(textColorDescriptive).then(hex => { appState.processedData.textColorHex = hex; }));
+            if (textColorDescriptive && textColorHex === 'loading') {
+                promises.push(getHexCode(textColorDescriptive, appState.processedData.textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
-            if (outlineColorDescriptive && appState.processedData.outlineColorHex === 'loading') {
-                promises.push(getHexCode(outlineColorDescriptive).then(hex => { appState.processedData.outlineColorHex = hex; }));
+            if (outlineColorDescriptive && outlineColorHex === 'loading') {
+                promises.push(getHexCode(outlineColorDescriptive, appState.processedData.outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
@@ -244,7 +244,7 @@
             if (!rawSize) return { display: null, filename: "" };
             let str = rawSize.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
             let display = str.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\bINCHES\b/gi, 'INCH').replace(/\s*("|\u201D)\s*/g, ' INCH ').replace(/[^a-zA-Z0-9\s.-]/g, ' ').replace(/\s+/g, ' ').trim();
-            let filename = display.replace(/\b(length|long)\b/gi, 'L').replace(/\bheight\b/gi, 'H').replace(/\bwidth\b/gi, 'W');
+            let filename = display.replace(/\b(length|long|wide)\b/gi, 'L').replace(/\b(height|tall)\b/gi, 'H');
             return { display, filename };
         }
 
@@ -290,23 +290,21 @@
             throw new Error("Invalid OCR response from server.");
         }
         
-        async function getHexCode(descriptiveColor, bypassCache = false) {
+        async function getHexCode(descriptiveColor, extractedHex) {
             if (!descriptiveColor) return "N/A";
+            if (extractedHex && /^#([A-Fa-f0-9]{6})$/.test(extractedHex)) return extractedHex;
             const canonical = descriptiveColor.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
-            const cache = hexCache.get();
-            if (!bypassCache && cache[canonical] && new Date().getTime() < cache[canonical].expiry) return cache[canonical].hex;
+            if (canonical === 'white') return commonColorHexMap['white'];
+            for (const key in commonColorHexMap) {
+                if (key.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ") === canonical) return commonColorHexMap[key];
+            }
             try {
                 const result = await callWorkerWithRetries({ endpoint: 'hex', colorName: descriptiveColor });
                 const hex = result.candidates?.[0]?.content?.parts?.[0]?.text.trim();
                 if (/^#([A-Fa-f0-9]{6})$/.test(hex)) {
-                    const expiry = new Date().getTime() + (30 * 24 * 60 * 60 * 1000);
-                    const currentCache = hexCache.get();
-                    currentCache[canonical] = { hex, expiry };
-                    hexCache.save(currentCache);
                     return hex;
                 }
             } catch (error) { console.warn(`Worker hex generation failed for "${descriptiveColor}".`, error); }
-            for (const key in commonColorHexMap) if (key.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ") === canonical) return commonColorHexMap[key];
             return "N/A";
         }
         
@@ -321,27 +319,29 @@
         function renderOutput() {
             dom.extractedInfo.innerHTML = '';
             const { sku, fontStyle, customText, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
-            const createRow = (label, value, dataKey, copyValue = null, needsReview = false, descColorForSearch = null) => {
+            const createRow = (label, value, dataKey) => {
                 if (value === null || value === undefined) return;
                 const row = document.createElement('div');
                 row.className = 'output-item border-b border-slate-700';
                 const valueHTML = value === 'loading' ? `<div class="hex-loader"></div> Generating...` : String(value);
-                row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow ${needsReview ? (label.includes('Hex') ? 'suggested-invalid-hex' : 'needs-review') : ''}" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0">${label.includes("Hex Code") ? `<button class="search-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Search again for ${descColorForSearch}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" /></svg></button>` : ''}<button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
+                row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0"><button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
                 dom.extractedInfo.appendChild(row);
-                row.querySelector('.search-btn')?.addEventListener('click', async () => { appState.processedData[dataKey] = 'loading'; renderOutput(); appState.processedData[dataKey] = await getHexCode(descColorForSearch, true); renderOutput(); });
                 row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
-                row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(copyValue !== null ? String(copyValue) : String(value), e.currentTarget));
+                row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
             };
-
             const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
             createRow('Your custom text', customText, 'customText');
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') createRow('Text Hex Code', textColorHex, 'textColorHex', textColorHex, textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex), textColorDescriptive);
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') {
+                createRow('Text Hex Code', textColorHex, 'textColorHex');
+            }
             if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
-                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex', outlineColorHex, outlineColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(outlineColorHex), outlineColorDescriptive);
+                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') {
+                    createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex');
+                }
             }
             createRow('Size', sizeDisplay, 'sizeDisplay');
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
@@ -359,7 +359,7 @@
             if (!fontStyle) issues.push("Font Style");
             if (!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) issues.push("Custom Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
-            if (textColorDescriptive && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
             if (originalInput.toLowerCase().includes("size") && (!sizeDisplay || !sizeDisplay.includes('L') || !sizeDisplay.includes('H'))) issues.push("Size");
             dom.ocrWarning.classList.toggle('hidden', issues.length === 0);
             dom.ocrWarningHint.textContent = issues.length > 0 ? `Check: ${issues.join(', ')}` : '';
@@ -488,3 +488,4 @@
     </script>
 </body>
 </html>
+
