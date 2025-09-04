@@ -225,10 +225,10 @@
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
             const promises = [];
             if (textColorDescriptive && textColorHex === 'loading') {
-                promises.push(getHexCode(textColorDescriptive, appState.processedData.textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
+                promises.push(getHexCode(textColorDescriptive, textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && outlineColorHex === 'loading') {
-                promises.push(getHexCode(outlineColorDescriptive, appState.processedData.outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
+                promises.push(getHexCode(outlineColorDescriptive, outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
