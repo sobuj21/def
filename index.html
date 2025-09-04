@@ -389,7 +389,9 @@
             if (!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) issues.push("Custom Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
-            if (originalInput.toLowerCase().includes("size") && (!sizeDisplay || !sizeDisplay.includes('Length') || !sizeDisplay.includes('Height'))) issues.push("Size");
+            if (originalInput.toLowerCase().includes("size:") && !sizeDisplay) {
+                issues.push("Size");
+            }
             dom.ocrWarning.classList.toggle('hidden', issues.length === 0);
             dom.ocrWarningHint.textContent = issues.length > 0 ? `Check: ${issues.join(', ')}` : '';
         }
