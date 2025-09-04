@@ -161,7 +161,7 @@
                 const base64ImageData = await imageToBase64(imageFile);
                 let ocrText = '';
                 try {
-                    setProcessingState(true, 'Running Gemini OCR...');
+                    setProcessingState(true, 'Analyzing Image with AI...');
                     ocrText = await callWorkerForOcr(base64ImageData, imageFile.type);
                     appState.ocrSource = 'Gemini';
                 } catch (error) {
@@ -274,7 +274,7 @@
                 };
             }
             
-            const genericRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?\s*x\s*(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?/i;
+            const genericRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?\s*[xX]\s*(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?/i;
             const genericMatch = str.match(genericRegex);
             if (genericMatch) {
                 const num1 = parseFloat(genericMatch[1]);
