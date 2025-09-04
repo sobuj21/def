@@ -188,19 +188,34 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText","Text Color:":"textColorFull","Colors:":"textColorFull","Text Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Colors:":"textColorFull","Text Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
+            const multiLineFields = ['extraText', 'businessName', 'location'];
+            
             text.split('\n').forEach(line => {
                 const trimmed = line.trim();
                 if (!trimmed || ["Customizations:", "Surface 1:"].some(n => trimmed.startsWith(n))) return;
+
                 for (const key in keyMap) {
-                    if (trimmed.toLowerCase().startsWith(key.toLowerCase())) { raw[keyMap[key]] = trimmed.substring(key.length).trim(); return; }
+                    if (trimmed.toLowerCase().startsWith(key.toLowerCase())) {
+                        const fieldName = keyMap[key];
+                        const value = trimmed.substring(key.length).trim();
+                        if (multiLineFields.includes(fieldName)) {
+                            if (!raw[fieldName]) raw[fieldName] = [];
+                            raw[fieldName].push(value);
+                        } else {
+                            raw[fieldName] = value;
+                        }
+                        return;
+                    }
                 }
             });
+
             const textColor = parseColorValue(raw.textColorFull);
             const outlineColor = parseColorValue(raw.outlineColorFull);
             const size = formatSize(raw.size);
-            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
+            
+            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
             renderOutput();
             await fetchHexCodesAsync();
         }
@@ -277,9 +292,10 @@
         }
 
         function generateFilename() {
-            const { customText, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku } = appState.processedData;
+            const { customText, businessName, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku } = appState.processedData;
+            const primaryText = businessName[0] || customText || "NoText";
             const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
-            const parts = [ customText || "NoText", cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})` ];
+            const parts = [ primaryText, cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})` ];
             return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
         }
 
@@ -346,7 +362,7 @@
 
         function renderOutput() {
             dom.extractedInfo.innerHTML = '';
-            const { sku, fontStyle, customText, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const { sku, fontStyle, customText, businessName, location, extraText, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
             const createRow = (label, value, dataKey) => {
                 if (value === null || value === undefined) return;
                 const row = document.createElement('div');
@@ -361,18 +377,22 @@
             const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
-            createRow('Your custom text', customText, 'customText');
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') {
-                createRow('Text Hex Code', textColorHex, 'textColorHex');
-            }
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
+            
+            if (customText) createRow('Your custom text', customText, 'customText');
+            businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName${i}`));
+            location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location${i}`));
+            extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText${i}`));
+
+            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
+            
             if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
-                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') {
-                    createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex');
-                }
+                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
             createRow('Size', sizeDisplay, 'sizeDisplay');
+
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
@@ -382,11 +402,11 @@
         }
 
         function renderOcrWarning() {
-            const { sku, fontStyle, customText, textColorDescriptive, textColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const { sku, fontStyle, customText, businessName, textColorDescriptive, textColorHex, sizeDisplay, originalInput } = appState.processedData;
             const issues = [];
             if (!sku || sku === "NoSKU") issues.push("SKU");
             if (!fontStyle) issues.push("Font Style");
-            if (!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) issues.push("Custom Text");
+            if ((!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) && businessName.length === 0) issues.push("Primary Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
             if (originalInput.toLowerCase().includes("size:") && !sizeDisplay) {
