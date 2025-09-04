@@ -209,10 +209,10 @@
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
             const promises = [];
             if (textColorDescriptive && textColorHex === 'loading') {
-                promises.push(getHexCode(textColorDescriptive, textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
+                promises.push(getHexCode(textColorDescriptive, appState.processedData.textColorHex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && outlineColorHex === 'loading') {
-                promises.push(getHexCode(outlineColorDescriptive, outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
+                promises.push(getHexCode(outlineColorDescriptive, appState.processedData.outlineColorHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
@@ -242,6 +242,24 @@
         function formatSize(rawSize) {
             if (!rawSize) return { display: null, filename: "" };
             let str = rawSize.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
+            
+            const dimensions = [];
+            const dimensionRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)\s*\(([^)]+)\)/gi;
+            let match;
+            while ((match = dimensionRegex.exec(str)) !== null) {
+                dimensions.push({ value: match[1], unit: "INCH", type: match[3].toLowerCase() });
+            }
+
+            const length = dimensions.find(d => d.type.includes('length') || d.type.includes('long') || d.type.includes('wide'));
+            const height = dimensions.find(d => d.type.includes('height') || d.type.includes('tall'));
+
+            if (length && height) {
+                return {
+                    display: `${length.value} INCH Length ${height.value} INCH Height`,
+                    filename: `${length.value} INCH L ${height.value} INCH H`
+                };
+            }
+            // Fallback for simpler formats
             let display = str.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\bINCHES\b/gi, 'INCH').replace(/\s*("|\u201D)\s*/g, ' INCH ').replace(/[^a-zA-Z0-9\s.-]/g, ' ').replace(/\s+/g, ' ').trim();
             let filename = display.replace(/\b(length|long|wide)\b/gi, 'L').replace(/\b(height|tall)\b/gi, 'H');
             return { display, filename };
@@ -360,7 +378,7 @@
             if (!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) issues.push("Custom Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
-            if (originalInput.toLowerCase().includes("size") && (!sizeDisplay || !sizeDisplay.includes('L') || !sizeDisplay.includes('H'))) issues.push("Size");
+            if (originalInput.toLowerCase().includes("size") && (!sizeDisplay || !sizeDisplay.includes('Length') || !sizeDisplay.includes('Height'))) issues.push("Size");
             dom.ocrWarning.classList.toggle('hidden', issues.length === 0);
             dom.ocrWarningHint.textContent = issues.length > 0 ? `Check: ${issues.join(', ')}` : '';
         }
