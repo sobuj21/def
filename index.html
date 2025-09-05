@@ -225,10 +225,10 @@
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
             const promises = [];
             if (textColorDescriptive && textColorHex === 'loading') {
-                promises.push(getHexCode(textColorDescriptive, parseColorValue(appState.processedData.originalInput.match(/Text Color: (.*)/i)?.[1])?.hex).then(hex => { appState.processedData.textColorHex = hex; }));
+                promises.push(getHexCode(textColorDescriptive, parseColorValue(appState.processedData.textColorFull)?.hex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && outlineColorHex === 'loading') {
-                promises.push(getHexCode(outlineColorDescriptive, parseColorValue(appState.processedData.originalInput.match(/Text Outline Color: (.*)/i)?.[1])?.hex).then(hex => { appState.processedData.outlineColorHex = hex; }));
+                promises.push(getHexCode(outlineColorDescriptive, parseColorValue(appState.processedData.outlineColorFull)?.hex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
@@ -241,6 +241,12 @@
             let str = value.replace(/^(?:Please\s+)?ignore\s+this\s+color.*$/i, '').trim();
             const hex = (str.match(/#([A-Fa-f0-9]{6})\b/) || [])[0] || null;
             const descriptive = cleanColorName(str.replace(hex || '', ''));
+            
+            // Override with internal white if name is "White"
+            if (descriptive && descriptive.toLowerCase() === 'white') {
+                return { descriptive, hex: commonColorHexMap['white'] };
+            }
+            
             return { descriptive, hex: hex || 'loading' };
         }
 
@@ -378,22 +384,18 @@
             const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
-            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
-            
             if (customText) createRow('Your custom text', customText, 'customText');
             businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName${i}`));
             location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location${i}`));
             extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText${i}`));
-
-            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
-            
+            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
             if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
                 if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
+            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
-
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
