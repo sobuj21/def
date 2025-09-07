@@ -384,18 +384,22 @@
             const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
+            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
+            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
+            
             if (customText) createRow('Your custom text', customText, 'customText');
             businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName${i}`));
             location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location${i}`));
             extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText${i}`));
-            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
+
+            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
+            
             if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
                 if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
-            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
+
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
