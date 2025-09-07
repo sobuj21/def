@@ -222,16 +222,21 @@
         }
         
         async function fetchHexCodesAsync() {
-            const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex } = appState.processedData;
+            const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex, originalInput } = appState.processedData;
             const promises = [];
+
+            // Re-extract the original hex code from the raw text for the non-white colors
+            const originalTextColorFull = originalInput.match(/(?:Text Color:|Colors:)\s*(.*)/i)?.[1];
+            const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Colors:)\s*(.*)/i)?.[1];
             
+            const extractedTextHex = parseColorValue(originalTextColorFull)?.hex;
+            const extractedOutlineHex = parseColorValue(originalOutlineColorFull)?.hex;
+
             if (textColorDescriptive && textColorHex === 'loading') {
-                const extractedHex = parseColorValue(appState.processedData.originalInput.match(/(?:Text Color:|Colors:)\s*(.*)/i)?.[1])?.hex;
-                promises.push(getHexCode(textColorDescriptive, extractedHex).then(hex => { appState.processedData.textColorHex = hex; }));
+                promises.push(getHexCode(textColorDescriptive, extractedTextHex).then(hex => { appState.processedData.textColorHex = hex; }));
             }
             if (outlineColorDescriptive && outlineColorHex === 'loading') {
-                const extractedHex = parseColorValue(appState.processedData.originalInput.match(/(?:Text Outline Color:|Outline Colors:)\s*(.*)/i)?.[1])?.hex;
-                promises.push(getHexCode(outlineColorDescriptive, extractedHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
+                promises.push(getHexCode(outlineColorDescriptive, extractedOutlineHex).then(hex => { appState.processedData.outlineColorHex = hex; }));
             }
             if (promises.length > 0) {
                  await Promise.all(promises);
@@ -245,6 +250,7 @@
             const hex = (str.match(/#([A-Fa-f0-9]{6})\b/) || [])[0] || null;
             const descriptive = cleanColorName(str.replace(hex || '', ''));
             
+            // This is the critical fix: Override with internal white if name is "White"
             if (descriptive && descriptive.toLowerCase() === 'white') {
                 return { descriptive, hex: commonColorHexMap['white'] };
             }
