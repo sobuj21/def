@@ -190,9 +190,9 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Colors:":"textColorFull","Text Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Colors:":"textColorFull","Text Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
-            const multiLineFields = ['extraText', 'businessName', 'location'];
+            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials'];
             
             text.split('\n').forEach(line => {
                 const trimmed = line.trim();
@@ -216,7 +216,7 @@
             const outlineColor = parseColorValue(raw.outlineColorFull);
             const size = formatSize(raw.size);
             
-            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
+            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], socialMediaHandle: raw.socialMediaHandle || [], yourSocials: raw.yourSocials || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
             renderOutput();
             await fetchHexCodesAsync();
         }
@@ -224,6 +224,7 @@
         async function fetchHexCodesAsync() {
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex, originalInput } = appState.processedData;
             const promises = [];
+            
             const originalTextColorFull = originalInput.match(/(?:Text Color:|Colors:)\s*(.*)/i)?.[1];
             const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Colors:)\s*(.*)/i)?.[1];
             
@@ -304,8 +305,8 @@
         }
 
         function generateFilename() {
-            const { customText, businessName, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku } = appState.processedData;
-            const primaryText = businessName[0] || customText || "NoText";
+            const { customText, businessName, socialMediaHandle, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku } = appState.processedData;
+            const primaryText = businessName[0] || socialMediaHandle[0] || customText || "NoText";
             const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
             const parts = [ primaryText, cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})` ];
             return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
@@ -374,7 +375,7 @@
 
         function renderOutput() {
             dom.extractedInfo.innerHTML = '';
-            const { sku, fontStyle, customText, businessName, location, extraText, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const { sku, fontStyle, customText, businessName, location, extraText, yourSocials, socialMediaHandle, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
             const createRow = (label, value, dataKey) => {
                 if (value === null || value === undefined) return;
                 const row = document.createElement('div');
@@ -390,9 +391,11 @@
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
             if (customText) createRow('Your custom text', customText, 'customText');
-            businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName${i}`));
-            location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location${i}`));
-            extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText${i}`));
+            businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName[${i}]`));
+            location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location[${i}]`));
+            extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText[${i}]`));
+            yourSocials.forEach((social, i) => createRow(yourSocials.length > 1 ? `Your Socials${i+1}` : 'Your Socials', social, `yourSocials[${i}]`));
+            socialMediaHandle.forEach((handle, i) => createRow(socialMediaHandle.length > 1 ? `Input Your Social Media Handle${i+1}` : 'Input Your Social Media Handle', handle, `socialMediaHandle[${i}]`));
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
             if (outlineInSource) {
@@ -401,6 +404,7 @@
             }
             createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
+
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
@@ -410,11 +414,11 @@
         }
 
         function renderOcrWarning() {
-            const { sku, fontStyle, customText, businessName, textColorDescriptive, textColorHex, sizeDisplay, originalInput } = appState.processedData;
+            const { sku, fontStyle, customText, businessName, socialMediaHandle, textColorDescriptive, textColorHex, sizeDisplay, originalInput } = appState.processedData;
             const issues = [];
             if (!sku || sku === "NoSKU") issues.push("SKU");
             if (!fontStyle) issues.push("Font Style");
-            if ((!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) && businessName.length === 0) issues.push("Primary Text");
+            if ((!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) && businessName.length === 0 && socialMediaHandle.length === 0) issues.push("Primary Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
             if (originalInput.toLowerCase().includes("size:") && !sizeDisplay) {
@@ -444,13 +448,11 @@
             if (isEditing) {
                 valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review');
                 const newValue = valueSpan.textContent.trim();
-                
-                // Special handling for array data
-                const arrayMatch = dataKey.match(/([a-zA-Z]+)(\d*)/);
+                const arrayMatch = dataKey.match(/([a-zA-Z]+)(\[(\d+)\])?/);
                 const fieldName = arrayMatch[1];
-                const index = arrayMatch[2] ? parseInt(arrayMatch[2], 10) : 0;
+                const index = arrayMatch[3] ? parseInt(arrayMatch[3], 10) : null;
                 
-                if (Array.isArray(appState.processedData[fieldName])) {
+                if (index !== null && Array.isArray(appState.processedData[fieldName])) {
                     appState.processedData[fieldName][index] = newValue;
                 } else {
                     appState.processedData[dataKey] = newValue;
