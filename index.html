@@ -404,7 +404,6 @@
             }
             createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
-
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
@@ -448,16 +447,16 @@
             if (isEditing) {
                 valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review');
                 const newValue = valueSpan.textContent.trim();
-                const arrayMatch = dataKey.match(/([a-zA-Z]+)(\[(\d+)\])?/);
-                const fieldName = arrayMatch[1];
-                const index = arrayMatch[3] ? parseInt(arrayMatch[3], 10) : null;
-                
-                if (index !== null && Array.isArray(appState.processedData[fieldName])) {
-                    appState.processedData[fieldName][index] = newValue;
+                const arrayMatch = dataKey.match(/([a-zA-Z]+)\[(\d+)\]/);
+                if (arrayMatch) {
+                    const fieldName = arrayMatch[1];
+                    const index = parseInt(arrayMatch[2], 10);
+                    if (Array.isArray(appState.processedData[fieldName])) {
+                        appState.processedData[fieldName][index] = newValue;
+                    }
                 } else {
                     appState.processedData[dataKey] = newValue;
                 }
-
                 if (dataKey.includes('Descriptive')) {
                     const hexKey = dataKey.replace('Descriptive', 'Hex');
                     appState.processedData[hexKey] = 'loading';
