@@ -224,12 +224,11 @@
         async function fetchHexCodesAsync() {
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex, originalInput } = appState.processedData;
             const promises = [];
-            
             const originalTextColorFull = originalInput.match(/(?:Text Color:|Colors:)\s*(.*)/i)?.[1];
             const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Colors:)\s*(.*)/i)?.[1];
             
-            const extractedTextHex = parseColorValue(originalTextColorFull)?.hex;
-            const extractedOutlineHex = parseColorValue(originalOutlineColorFull)?.hex;
+            const extractedTextHex = parseColorValue(originalTextColorFull, true)?.hex;
+            const extractedOutlineHex = parseColorValue(originalOutlineColorFull, true)?.hex;
 
             if (textColorDescriptive && textColorHex === 'loading') {
                 promises.push(getHexCode(textColorDescriptive, extractedTextHex).then(hex => { appState.processedData.textColorHex = hex; }));
@@ -243,13 +242,13 @@
             }
         }
         
-        function parseColorValue(value) {
+        function parseColorValue(value, isForInitialExtraction = false) {
             if (!value) return { descriptive: null, hex: null };
             let str = value.replace(/^(?:Please\s+)?ignore\s+this\s+color.*$/i, '').trim();
             const hex = (str.match(/#([A-Fa-f0-9]{6})\b/) || [])[0] || null;
             const descriptive = cleanColorName(str.replace(hex || '', ''));
             
-            if (descriptive && descriptive.toLowerCase() === 'white') {
+            if (descriptive && descriptive.toLowerCase() === 'white' && !isForInitialExtraction) {
                 return { descriptive, hex: commonColorHexMap['white'] };
             }
             
@@ -445,11 +444,32 @@
             if (isEditing) {
                 valueSpan.classList.remove('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700', 'needs-review');
                 const newValue = valueSpan.textContent.trim();
-                appState.processedData[dataKey] = newValue;
-                if (dataKey.includes('Descriptive')) { appState.processedData[dataKey.replace('Descriptive', 'Hex')] = 'loading'; }
-                renderOutput(); 
-                await fetchHexCodesAsync();
-            } else { valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700'); valueSpan.focus(); document.execCommand('selectAll', false, null); }
+                
+                // Special handling for array data
+                const arrayMatch = dataKey.match(/([a-zA-Z]+)(\d*)/);
+                const fieldName = arrayMatch[1];
+                const index = arrayMatch[2] ? parseInt(arrayMatch[2], 10) : 0;
+                
+                if (Array.isArray(appState.processedData[fieldName])) {
+                    appState.processedData[fieldName][index] = newValue;
+                } else {
+                    appState.processedData[dataKey] = newValue;
+                }
+
+                if (dataKey.includes('Descriptive')) {
+                    const hexKey = dataKey.replace('Descriptive', 'Hex');
+                    appState.processedData[hexKey] = 'loading';
+                    renderOutput();
+                    appState.processedData[hexKey] = await getHexCode(newValue, null);
+                    renderOutput();
+                } else {
+                    renderOutput();
+                }
+            } else {
+                valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
+                valueSpan.focus();
+                document.execCommand('selectAll', false, null);
+            }
         }
         
         function handleFilenameEdit(isEditing) {
