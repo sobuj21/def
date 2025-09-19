@@ -224,8 +224,10 @@
         async function fetchHexCodesAsync() {
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex, originalInput } = appState.processedData;
             const promises = [];
+            
             const originalTextColorFull = originalInput.match(/(?:Text Color:|Colors:)\s*(.*)/i)?.[1];
             const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Colors:)\s*(.*)/i)?.[1];
+            
             const extractedTextHex = parseColorValue(originalTextColorFull)?.hex;
             const extractedOutlineHex = parseColorValue(originalOutlineColorFull)?.hex;
 
