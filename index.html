@@ -190,9 +190,9 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here:":"customText","your custom text here:":"customText","custom text here:":"customText", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
-            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials'];
+            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
             
             text.split('\n').forEach(line => {
                 const trimmed = line.trim();
@@ -216,7 +216,7 @@
             const outlineColor = parseColorValue(raw.outlineColorFull);
             const size = formatSize(raw.size);
             
-            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || null, businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], socialMediaHandle: raw.socialMediaHandle || [], yourSocials: raw.yourSocials || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
+            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || [], businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], socialMediaHandle: raw.socialMediaHandle || [], yourSocials: raw.yourSocials || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
             renderOutput();
             await fetchHexCodesAsync();
         }
@@ -306,7 +306,7 @@
 
         function generateFilename() {
             const { customText, businessName, socialMediaHandle, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku, fontStyle } = appState.processedData;
-            const primaryText = businessName[0] || socialMediaHandle[0] || customText || "NoText";
+            const primaryText = businessName[0] || socialMediaHandle[0] || customText[0] || "NoText";
             const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
             const fontStylePart = fontStyle ? `(${fontStyle})` : "";
             const parts = [ primaryText, cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})`, fontStylePart ];
@@ -390,7 +390,7 @@
 
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
-            if (customText) createRow('Your custom text', customText, 'customText');
+            customText.forEach((text, i) => createRow(customText.length > 1 ? `Your custom text${i+1}`: 'Your custom text', text, `customText[${i}]`));
             businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName[${i}]`));
             location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location[${i}]`));
             extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText[${i}]`));
@@ -417,7 +417,7 @@
             const issues = [];
             if (!sku || sku === "NoSKU") issues.push("SKU");
             if (!fontStyle) issues.push("Font Style");
-            if ((!customText || /\s{2,}|(?:\b[A-Z]\s){2,}[A-Z]\b/.test(customText)) && businessName.length === 0 && socialMediaHandle.length === 0) issues.push("Primary Text");
+            if (customText.length === 0 && businessName.length === 0 && socialMediaHandle.length === 0) issues.push("Primary Text");
             if (originalInput.toLowerCase().includes("color") && !textColorDescriptive) issues.push("Text Color");
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black' && textColorHex !== 'loading' && !/^#([A-Fa-f0-9]{6})$/.test(textColorHex)) issues.push("Text Hex");
             if (originalInput.toLowerCase().includes("size:") && !sizeDisplay) {
@@ -499,7 +499,7 @@
             appState.isProcessing = isProcessing;
             dom.submitButton.disabled = isProcessing;
             dom.submitButton.classList.toggle('processing', isProcessing);
-            dom.submitSpinner.classList.toggle('hidden', !isProcessing);
+            dom.submitSpinner.classList.toggle('hidden', !isEditing);
             if (isProcessing) {
                 showMessage(message, false, 0);
             } else {
