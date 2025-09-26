@@ -190,7 +190,7 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here.:":"customText", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Colors:":"textColorFull","Color:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
             const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials'];
             
@@ -225,8 +225,8 @@
             const { textColorDescriptive, outlineColorDescriptive, textColorHex, outlineColorHex, originalInput } = appState.processedData;
             const promises = [];
             
-            const originalTextColorFull = originalInput.match(/(?:Text Color:|Colors:|Color:)\s*(.*)/i)?.[1];
-            const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Colors:|Outline Color:)\s*(.*)/i)?.[1];
+            const originalTextColorFull = originalInput.match(/(?:Text Color:|Color:)\s*(.*)/i)?.[1];
+            const originalOutlineColorFull = originalInput.match(/(?:Text Outline Color:|Outline Color:)\s*(.*)/i)?.[1];
             
             const extractedTextHex = parseColorValue(originalTextColorFull, true)?.hex;
             const extractedOutlineHex = parseColorValue(originalOutlineColorFull, true)?.hex;
@@ -309,14 +309,7 @@
             const primaryText = businessName[0] || socialMediaHandle[0] || customText || "NoText";
             const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
             const fontStylePart = fontStyle ? `(${fontStyle})` : "";
-            const parts = [ 
-                primaryText, 
-                cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", 
-                cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", 
-                sizeFilename ? `(S-${sizeFilename})` : "", 
-                `(${(sku || "NoSKU")})`,
-                fontStylePart
-            ];
+            const parts = [ primaryText, cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})`, fontStylePart ];
             return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
         }
 
@@ -395,6 +388,7 @@
                 row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
             };
 
+            const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
             if (customText) createRow('Your custom text', customText, 'customText');
@@ -405,13 +399,12 @@
             socialMediaHandle.forEach((handle, i) => createRow(socialMediaHandle.length > 1 ? `Input Your Social Media Handle${i+1}` : 'Input Your Social Media Handle', handle, `socialMediaHandle[${i}]`));
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
-            if (originalInput?.toLowerCase().includes("outline")) {
+            if (outlineInSource) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
                 if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
             createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
-
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
@@ -577,5 +570,4 @@
     </script>
 </body>
 </html>
-
 
