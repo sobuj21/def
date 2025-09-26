@@ -190,9 +190,9 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input your custom text here.:":"customText", "your custom text here.:":"customText", "custom text here.:":"customText", "Input your custom text here:": "customText", "your custom text here:": "customText", "custom text here:": "customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
-            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials'];
+            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
             
             text.split('\n').forEach(line => {
                 const trimmed = line.trim();
@@ -378,24 +378,39 @@
             dom.extractedInfo.innerHTML = '';
             const { sku, fontStyle, customText, businessName, location, extraText, yourSocials, socialMediaHandle, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
             const createRow = (label, value, dataKey) => {
-                if (value === null || value === undefined) return;
+                if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) return;
+                
+                if (Array.isArray(value)) {
+                    value.forEach((item, i) => {
+                        const numberedLabel = value.length > 1 ? `${label}${i+1}` : label;
+                        const indexedDataKey = `${dataKey}[${i}]`;
+                        const row = createRowElement(numberedLabel, item, indexedDataKey);
+                        dom.extractedInfo.appendChild(row);
+                    });
+                } else {
+                    const row = createRowElement(label, value, dataKey);
+                    dom.extractedInfo.appendChild(row);
+                }
+            };
+            
+            const createRowElement = (label, value, dataKey) => {
                 const row = document.createElement('div');
                 row.className = 'output-item border-b border-slate-700';
                 const valueHTML = value === 'loading' ? `<div class="hex-loader"></div> Generating...` : String(value);
                 row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0"><button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
-                dom.extractedInfo.appendChild(row);
                 row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
                 row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
+                return row;
             };
 
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
-            customText.forEach((text, i) => createRow(customText.length > 1 ? `Your custom text${i+1}`: 'Your custom text', text, `customText[${i}]`));
-            businessName.forEach((name, i) => createRow(businessName.length > 1 ? `Your Business Name${i+1}` : 'Your Business Name', name, `businessName[${i}]`));
-            location.forEach((loc, i) => createRow(location.length > 1 ? `Enter Location${i+1}` : 'Enter Location (City, State)', loc, `location[${i}]`));
-            extraText.forEach((txt, i) => createRow(`Enter Your Text${i+1}`, txt, `extraText[${i}]`));
-            yourSocials.forEach((social, i) => createRow(yourSocials.length > 1 ? `Your Socials${i+1}` : 'Your Socials', social, `yourSocials[${i}]`));
-            socialMediaHandle.forEach((handle, i) => createRow(socialMediaHandle.length > 1 ? `Input Your Social Media Handle${i+1}` : 'Input Your Social Media Handle', handle, `socialMediaHandle[${i}]`));
+            createRow('Your custom text', customText, 'customText');
+            createRow('Your Business Name', businessName, 'businessName');
+            createRow('Enter Location (City, State)', location, 'location');
+            createRow('Enter Your Text', extraText, 'extraText');
+            createRow('Your Socials', yourSocials, 'yourSocials');
+            createRow('Input Your Social Media Handle', socialMediaHandle, 'socialMediaHandle');
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
             if (originalInput?.toLowerCase().includes("outline")) {
@@ -404,6 +419,7 @@
             }
             createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
             createRow('Size', sizeDisplay, 'sizeDisplay');
+
             if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
