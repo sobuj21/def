@@ -388,7 +388,6 @@
                 row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
             };
 
-            const outlineInSource = originalInput?.toLowerCase().includes("outline");
             createRow('SKU', sku, 'sku');
             createRow('Font Style', fontStyle, 'fontStyle');
             if (customText) createRow('Your custom text', customText, 'customText');
@@ -399,7 +398,7 @@
             socialMediaHandle.forEach((handle, i) => createRow(socialMediaHandle.length > 1 ? `Input Your Social Media Handle${i+1}` : 'Input Your Social Media Handle', handle, `socialMediaHandle[${i}]`));
             createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
             if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
-            if (outlineInSource) {
+            if (originalInput?.toLowerCase().includes("outline")) {
                  createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
                 if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
             }
