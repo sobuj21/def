@@ -164,7 +164,7 @@
                 let ocrText = '';
                 try {
                     setProcessingState(true, 'Analyzing Image with AI...');
-                    ocrText = await callWorkerWithRetries({ endpoint: 'ocr', imageData, mimeType: imageFile.type });
+                    ocrText = await callWorkerForOcr(base64ImageData, imageFile.type);
                     appState.ocrSource = 'Gemini';
                 } catch (error) {
                     console.error("Primary OCR failed. Reason:", error.message);
@@ -187,7 +187,7 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText","Input your custom text here:":"customText","your custom text here:":"customText","custom text here:":"customText", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input your custom text here.:":"customText", "your custom text here.:":"customText", "custom text here.:":"customText", "Input your custom text here:": "customText", "your custom text here:": "customText", "custom text here:": "customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
             const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
             
@@ -218,7 +218,7 @@
             await fetchHexCodesAsync();
             
             const filename = generateFilename();
-            if (filename) {
+            if (filename && filename !== 'NoText()()(S-)(NoSKU)') {
                 const isFound = await checkFilenameInDB(filename);
                 dom.foundAlert.classList.toggle('hidden', !isFound);
                 if (!isFound) {
@@ -371,14 +371,6 @@
             } catch (error) { console.warn(`Worker hex generation failed for "${descriptiveColor}".`, error); }
             return "N/A";
         }
-        
-        async function runTesseractOcr(file) {
-            setProcessingState(true, 'Running Tesseract OCR...');
-            const worker = await Tesseract.createWorker('eng+rus');
-            const { data: { text } } = await worker.recognize(file);
-            await worker.terminate();
-            return text;
-        }
 
         async function checkFilenameInDB(filename) {
             try {
@@ -392,10 +384,19 @@
 
         async function addFilenameToDB(filename) {
             try {
-                await callWorkerWithRetries({ endpoint: 'addFilename', filename });
+                // This is a "fire and forget" call, we don't need to wait for the result
+                callWorkerWithRetries({ endpoint: 'addFilename', filename });
             } catch (error) {
                 console.error("Failed to add filename to DB:", error);
             }
+        }
+        
+        async function runTesseractOcr(file) {
+            setProcessingState(true, 'Running Tesseract OCR...');
+            const worker = await Tesseract.createWorker('eng+rus');
+            const { data: { text } } = await worker.recognize(file);
+            await worker.terminate();
+            return text;
         }
 
         function renderOutput() {
@@ -532,6 +533,7 @@
             dom.extractedInfo.innerHTML = ''; dom.filenameOutput.textContent = '';
             dom.ocrWarning.classList.add('hidden'); dom.ocrWarningHint.textContent = '';
             dom.ocrSourceDisplay.textContent = '';
+            dom.foundAlert.classList.add('hidden');
         }
 
         function setProcessingState(isProcessing, message = 'Processing...') {
