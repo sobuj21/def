@@ -95,7 +95,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- CONFIGURATION ---
-            const WORKER_URL = 'https://status-tracker.aurtho.com/query'; // IMPORTANT: Update this with your new worker's URL
+            // This URL points to your worker's analytics endpoint.
+            const WORKER_URL = 'https://gemini-api.aurtho.com/analytics'; 
 
             // --- DOM Elements ---
             const dom = {
@@ -125,7 +126,6 @@
                 const currentYear = now.getFullYear();
                 const currentMonth = now.getMonth();
 
-                // Populate months
                 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
                 months.forEach((month, index) => {
                     const option = new Option(month, index + 1);
@@ -133,7 +133,6 @@
                     dom.monthSelect.add(option);
                 });
 
-                // Populate years
                 for (let year = currentYear; year >= 2023; year--) {
                     dom.yearSelect.add(new Option(year, year));
                 }
@@ -147,34 +146,17 @@
                 showError(false);
                 dom.statsContainer.classList.add('hidden');
 
-                const urlToFetch = `${WORKER_URL}?year=${year}&month=${month}`;
-
                 try {
-                    const response = await fetch(urlToFetch, { mode: 'cors' }); // Explicitly set mode to 'cors'
-
+                    const response = await fetch(`${WORKER_URL}?year=${year}&month=${month}`);
                     if (!response.ok) {
-                        // Try to get a more detailed error message from the worker
-                        const errorText = await response.text();
-                        let errorData = { error: `Server error (${response.status})` };
-                        try {
-                            // Check if the error response is valid JSON
-                            errorData = JSON.parse(errorText);
-                        } catch (e) {
-                            // If not JSON, use the raw text as the error message
-                            console.error("Non-JSON error response from worker:", errorText);
-                        }
-                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch statistics. Please check the worker logs.' }));
+                        throw new Error(errorData.error);
                     }
                     const data = await response.json();
                     renderStats(data);
                 } catch (error) {
                     console.error('Fetch error:', error);
-                    // Provide a more helpful, user-facing error message
-                    let friendlyMessage = `Error: ${error.message}`;
-                    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-                        friendlyMessage = 'Could not connect to the statistics server. This may be a CORS issue, an incorrect worker URL, or a network problem. Please verify the worker is active and reachable.';
-                    }
-                    showError(true, friendlyMessage);
+                    showError(true, error.message);
                 } finally {
                     showLoader(false);
                 }
@@ -183,16 +165,14 @@
             function renderStats(data) {
                 dom.statsContainer.classList.remove('hidden');
 
-                // Animate numbers
                 animateValue(dom.todayPhotos, data.todayPhotos);
                 animateValue(dom.monthPhotos, data.monthPhotos);
                 animateValue(dom.monthGeminiCalls, data.monthGeminiCalls);
 
-                // Render IP table
                 dom.ipTableBody.innerHTML = '';
                 if (data.ipBreakdown && data.ipBreakdown.length > 0) {
                     dom.noIpData.classList.add('hidden');
-                    data.ipBreakdown.forEach(item => {
+                    data.ipBreakdown.sort((a, b) => b.count - a.count).forEach(item => {
                         const row = `
                             <tr class="border-b border-slate-700 hover:bg-slate-700/30">
                                 <td class="p-3">${item.ip_address}</td>
@@ -217,8 +197,11 @@
             }
             
             function animateValue(element, endValue) {
-                let startValue = parseInt(element.textContent) || 0;
-                if (startValue === endValue) return;
+                let startValue = parseInt(element.textContent.replace(/,/g, '')) || 0;
+                if (startValue === endValue) {
+                    element.textContent = endValue.toLocaleString();
+                    return;
+                }
                 
                 const duration = 1000;
                 const range = endValue - startValue;
