@@ -187,7 +187,7 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Font Style":"fontStyle","Your custom text:":"customText", "Input your custom text here.:":"customText", "your custom text here.:":"customText", "custom text here.:":"customText", "Input your custom text here:": "customText", "your custom text here:": "customText", "custom text here:": "customText", "Input Your Social Media Handle:":"socialMediaHandle","Input Your Social Media Handle":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size","Size":"size"};
+            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input your custom text here.:":"customText", "your custom text here.:":"customText", "custom text here.:":"customText", "Input your custom text here:": "customText", "your custom text here:": "customText", "custom text here:": "customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
             const raw = {};
             const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
             
@@ -610,4 +610,3 @@
     </script>
 </body>
 </html>
-
