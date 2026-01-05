@@ -311,11 +311,23 @@
         }
 
         function generateFilename() {
-            const { customText, businessName, socialMediaHandle, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku, fontStyle } = appState.processedData;
+            const { customText, businessName, socialMediaHandle, yourSocials, textColorDescriptive, outlineColorDescriptive, sizeFilename, sku, fontStyle } = appState.processedData;
+            
             const primaryText = businessName[0] || socialMediaHandle[0] || customText[0] || "NoText";
             const cleanColor = (c) => c ? c.replace(/[^a-zA-Z0-9\s-]/g, '').trim() : "";
             const fontStylePart = fontStyle ? `(${fontStyle})` : "";
-            const parts = [ primaryText, cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", sizeFilename ? `(S-${sizeFilename})` : "", `(${(sku || "NoSKU")})`, fontStylePart ];
+            
+            const socialsPart = (yourSocials && yourSocials.length > 0) ? `(${yourSocials.join(' ')})` : "";
+
+            const parts = [ 
+                primaryText, 
+                cleanColor(textColorDescriptive) ? `(TC-${cleanColor(textColorDescriptive)})` : "", 
+                cleanColor(outlineColorDescriptive) ? `(TOC-${cleanColor(outlineColorDescriptive)})` : "", 
+                sizeFilename ? `(S-${sizeFilename})` : "", 
+                socialsPart,
+                `(${(sku || "NoSKU")})`, 
+                fontStylePart 
+            ];
             return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
         }
 
