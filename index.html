@@ -276,12 +276,24 @@
         function formatSize(rawSize) {
             if (!rawSize) return { display: null, filename: "" };
             let str = rawSize.replace(/Option to Add Complimentary Free Squeegee/gi, "").trim();
+            
             const dimensions = [];
+            
+            // 1. Standard format: 12" (Length)
             const dimensionRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)\s*\(([^)]+)\)/gi;
             let match;
             while ((match = dimensionRegex.exec(str)) !== null) {
                 dimensions.push({ value: match[1], type: match[3].toLowerCase() });
             }
+
+            // 2. Unstructured format: 2 INCH HEIGHT 12 INCH LONG (without parens)
+            if (dimensions.length === 0) {
+                const plainTextRegex = /(\d+\.?\d*)\s*(?:["\u201D]|inch(?:es)?)?\s*(height|tall|length|long|wide)/gi;
+                while ((match = plainTextRegex.exec(str)) !== null) {
+                    dimensions.push({ value: match[1], type: match[2].toLowerCase() });
+                }
+            }
+
             const length = dimensions.find(d => d.type.includes('length') || d.type.includes('long') || d.type.includes('wide'));
             const height = dimensions.find(d => d.type.includes('height') || d.type.includes('tall'));
 
@@ -292,6 +304,7 @@
                 };
             }
             
+            // 3. Fallback Generic Format: 12x12
             const genericRegex = /(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?\s*[xX]\s*(\d+\.?\d*)\s*("|\u201D|inch(?:es)?)?/i;
             const genericMatch = str.match(genericRegex);
             if (genericMatch) {
