@@ -217,14 +217,8 @@
             renderOutput();
             await fetchHexCodesAsync();
             
-            const filename = generateFilename();
-            if (filename && filename !== 'NoText()()(S-)(NoSKU)') {
-                const isFound = await checkFilenameInDB(filename);
-                dom.foundAlert.classList.toggle('hidden', !isFound);
-                if (!isFound) {
-                    await addFilenameToDB(filename);
-                }
-            }
+            // Initial sync on processing
+            await syncCurrentFilenameWithDB();
         }
         
         async function fetchHexCodesAsync() {
@@ -342,6 +336,17 @@
                 fontStylePart 
             ];
             return parts.join('').replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
+        }
+
+        async function syncCurrentFilenameWithDB() {
+            const filename = generateFilename();
+            if (filename && filename !== 'NoText()()(S-)(NoSKU)') {
+                const isFound = await checkFilenameInDB(filename);
+                dom.foundAlert.classList.toggle('hidden', !isFound);
+                if (!isFound) {
+                    await addFilenameToDB(filename);
+                }
+            }
         }
 
         async function callWorkerWithRetries(payload) {
@@ -522,6 +527,8 @@
                 } else {
                     appState.processedData[dataKey] = newValue;
                 }
+                
+                // If it's a color edit, we need to re-fetch the hex
                 if (dataKey.includes('Descriptive')) {
                     const hexKey = dataKey.replace('Descriptive', 'Hex');
                     appState.processedData[hexKey] = 'loading';
@@ -531,6 +538,10 @@
                 } else {
                     renderOutput();
                 }
+
+                // NEW: Sync the updated filename to DB immediately after edit
+                await syncCurrentFilenameWithDB();
+
             } else {
                 valueSpan.classList.add('focus:ring-2', 'focus:ring-indigo-400', 'bg-slate-700');
                 valueSpan.focus();
