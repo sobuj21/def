@@ -187,33 +187,97 @@
 
         async function processInputText(text) {
             if (!text) { showMessage('Input text is empty.', true); return; }
-            const keyMap = {"SKU:":"sku","Font Style:":"fontStyle","Your custom text:":"customText", "Input your custom text here.:":"customText", "your custom text here.:":"customText", "custom text here.:":"customText", "Input your custom text here:": "customText", "your custom text here:": "customText", "custom text here:": "customText", "Input Your Social Media Handle:":"socialMediaHandle", "Your Socials:":"yourSocials", "Your Business Name:":"businessName", "Enter Location (City, State):": "location", "Enter Your Text:": "extraText", "Select Your Text Horizontal Alignment:": "alignment", "Text Color:":"textColorFull","Color:":"textColorFull","Colors:":"textColorFull", "Text Outline Color:":"outlineColorFull","Outline Color:":"outlineColorFull","Outline Colors:":"outlineColorFull","Size:":"size"};
+            
+            // NOTE: Mapped "Enter Your Text:" completely to "customText" to perfectly match AI logic
+            const keyMap = {
+                "SKU:":"sku",
+                "Font Style:":"fontStyle",
+                "Your custom text:":"customText", 
+                "Input your custom text here.:":"customText", 
+                "your custom text here.:":"customText", 
+                "custom text here.:":"customText", 
+                "Input your custom text here:": "customText", 
+                "your custom text here:": "customText", 
+                "custom text here:": "customText", 
+                "Enter Your Text:": "customText", 
+                "Input Your Social Media Handle:":"socialMediaHandle", 
+                "Your Socials:":"yourSocials", 
+                "Your Business Name:":"businessName", 
+                "Enter Location (City, State):": "location", 
+                "Select Your Text Horizontal Alignment:": "alignment", 
+                "Text Color:":"textColorFull",
+                "Color:":"textColorFull",
+                "Colors:":"textColorFull", 
+                "Text Outline Color:":"outlineColorFull",
+                "Outline Color:":"outlineColorFull",
+                "Outline Colors:":"outlineColorFull",
+                "Size:":"size"
+            };
+            
             const raw = {};
-            const multiLineFields = ['extraText', 'businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
+            const multiLineFields = ['businessName', 'location', 'socialMediaHandle', 'yourSocials', 'customText'];
+            const fieldOrder = []; // NEW: Array to track the exact serial/order of appearance
             
             text.split('\n').forEach(line => {
                 const trimmed = line.trim();
                 if (!trimmed || ["Customizations:", "Surface 1:"].some(n => trimmed.startsWith(n))) return;
+                
                 for (const key in keyMap) {
                     if (trimmed.toLowerCase().startsWith(key.toLowerCase())) {
                         const fieldName = keyMap[key];
-                        const value = trimmed.substring(key.length).trim();
+                        
+                        // Extract the value after the label
+                        let value = trimmed.substring(key.length).trim();
+                        if (value.startsWith(':')) value = value.substring(1).trim(); // Remove lingering colon if any
+                        
+                        // STRICT FRONTEND FILTER: If value is empty, immediately ignore this entire line/field
+                        if (!value) return; 
+
                         if (multiLineFields.includes(fieldName)) {
                             if (!raw[fieldName]) raw[fieldName] = [];
                             raw[fieldName].push(value);
                         } else {
                             raw[fieldName] = value;
                         }
+                        
+                        // Record the order it was found in
+                        if (!fieldOrder.includes(fieldName)) {
+                            fieldOrder.push(fieldName);
+                        }
                         return;
                     }
                 }
             });
 
+            // Ensure SKU is added to order if it was artificially missing but defaults to "NoSKU"
+            if (!raw.sku) {
+                raw.sku = "NoSKU";
+                fieldOrder.unshift('sku'); // Add to top by default if not found in list
+            }
+
             const textColor = parseColorValue(raw.textColorFull);
             const outlineColor = parseColorValue(raw.outlineColorFull);
             const size = formatSize(raw.size);
             
-            appState.processedData = { sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), fontStyle: raw.fontStyle || null, customText: raw.customText || [], businessName: raw.businessName || [], location: raw.location || [], extraText: raw.extraText || [], socialMediaHandle: raw.socialMediaHandle || [], yourSocials: raw.yourSocials || [], alignment: raw.alignment || null, textColorDescriptive: textColor.descriptive, textColorHex: textColor.hex, outlineColorDescriptive: outlineColor.descriptive, outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, sizeDisplay: size.display, sizeFilename: size.filename, originalInput: text };
+            appState.processedData = { 
+                sku: (raw.sku || "NoSKU").replace(/_/g, '-').replace('SC-MTO-25', 'SC-MСТО-25'), 
+                fontStyle: raw.fontStyle || null, 
+                customText: raw.customText || [], 
+                businessName: raw.businessName || [], 
+                location: raw.location || [], 
+                socialMediaHandle: raw.socialMediaHandle || [], 
+                yourSocials: raw.yourSocials || [], 
+                alignment: raw.alignment || null, 
+                textColorDescriptive: textColor.descriptive, 
+                textColorHex: textColor.hex, 
+                outlineColorDescriptive: outlineColor.descriptive, 
+                outlineColorHex: raw.outlineColorFull ? outlineColor.hex : null, 
+                sizeDisplay: size.display, 
+                sizeFilename: size.filename, 
+                originalInput: text,
+                fieldOrder: fieldOrder // Saving the serial order
+            };
+            
             renderOutput();
             await fetchHexCodesAsync();
             
@@ -468,7 +532,20 @@
 
         function renderOutput() {
             dom.extractedInfo.innerHTML = '';
-            const { sku, fontStyle, customText, businessName, location, extraText, yourSocials, socialMediaHandle, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput } = appState.processedData;
+            
+            // Now pulling `fieldOrder` to display items dynamically based on photo serial!
+            const { sku, fontStyle, customText, businessName, location, yourSocials, socialMediaHandle, alignment, textColorDescriptive, textColorHex, outlineColorDescriptive, outlineColorHex, sizeDisplay, originalInput, fieldOrder } = appState.processedData;
+            
+            const createRowElement = (label, value, dataKey) => {
+                const row = document.createElement('div');
+                row.className = 'output-item border-b border-slate-700';
+                const valueHTML = value === 'loading' ? `<div class="hex-loader"></div> Generating...` : String(value);
+                row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0"><button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
+                row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
+                row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
+                return row;
+            };
+
             const createRow = (label, value, dataKey) => {
                 if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) return;
                 
@@ -484,34 +561,36 @@
                     dom.extractedInfo.appendChild(row);
                 }
             };
-            
-            const createRowElement = (label, value, dataKey) => {
-                const row = document.createElement('div');
-                row.className = 'output-item border-b border-slate-700';
-                const valueHTML = value === 'loading' ? `<div class="hex-loader"></div> Generating...` : String(value);
-                row.innerHTML = `<span class="output-label text-slate-400">${label}:</span><span class="output-value text-slate-100 flex-grow" data-original-value="${String(value)}">${valueHTML}</span><div class="flex items-center flex-shrink-0"><button class="edit-btn p-1 bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit ${label}"><svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg><svg class="btn-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg></button><button class="copy-btn bg-slate-600 text-slate-200 hover:bg-slate-500">Copy</button></div>`;
-                row.querySelector('.edit-btn').addEventListener('click', (e) => handleValueEdit(row.querySelector('.output-value'), e.currentTarget, dataKey, label));
-                row.querySelector('.copy-btn').addEventListener('click', (e) => copyToClipboard(String(value), e.currentTarget));
-                return row;
-            };
 
-            createRow('SKU', sku, 'sku');
-            createRow('Font Style', fontStyle, 'fontStyle');
-            createRow('Your custom text', customText, 'customText');
-            createRow('Your Business Name', businessName, 'businessName');
-            createRow('Enter Location (City, State)', location, 'location');
-            createRow('Enter Your Text', extraText, 'extraText');
-            createRow('Your Socials', yourSocials, 'yourSocials');
-            createRow('Input Your Social Media Handle', socialMediaHandle, 'socialMediaHandle');
-            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
-            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
-            if (originalInput?.toLowerCase().includes("outline")) {
-                 createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
-                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
+            // DYNAMIC RENDERING: Maps the output exactly to the order they were processed!
+            if (fieldOrder && fieldOrder.length > 0) {
+                fieldOrder.forEach(field => {
+                    switch(field) {
+                        case 'sku': createRow('SKU', sku, 'sku'); break;
+                        case 'fontStyle': createRow('Font Style', fontStyle, 'fontStyle'); break;
+                        case 'customText': createRow('Your custom text', customText, 'customText'); break;
+                        case 'businessName': createRow('Your Business Name', businessName, 'businessName'); break;
+                        case 'location': createRow('Enter Location (City, State)', location, 'location'); break;
+                        case 'yourSocials': createRow('Your Socials', yourSocials, 'yourSocials'); break;
+                        case 'socialMediaHandle': createRow('Input Your Social Media Handle', socialMediaHandle, 'socialMediaHandle'); break;
+                        case 'textColorFull': 
+                            createRow('Text Color', textColorDescriptive, 'textColorDescriptive');
+                            if (textColorDescriptive && textColorDescriptive.toLowerCase() !== 'black') { createRow('Text Hex Code', textColorHex, 'textColorHex'); }
+                            break;
+                        case 'outlineColorFull':
+                            if (originalInput?.toLowerCase().includes("outline")) {
+                                createRow('Text Outline Color', outlineColorDescriptive, 'outlineColorDescriptive');
+                                if (outlineColorDescriptive && outlineColorDescriptive.toLowerCase() !== 'black') { createRow('Text Outline Hex Code', outlineColorHex, 'outlineColorHex'); }
+                            }
+                            break;
+                        case 'alignment': createRow('Select Your Text Horizontal Alignment', alignment, 'alignment'); break;
+                        case 'size': createRow('Size', sizeDisplay, 'sizeDisplay'); break;
+                    }
+                });
+            } else {
+                dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
             }
-            createRow('Select Your Text Horizontal Alignment', alignment, 'alignment');
-            createRow('Size', sizeDisplay, 'sizeDisplay');
-            if (dom.extractedInfo.children.length === 0) dom.extractedInfo.innerHTML = `<p class="text-slate-400 italic p-2">No relevant information could be extracted.</p>`;
+
             dom.filenameOutput.textContent = generateFilename();
             dom.ocrSourceDisplay.textContent = appState.ocrSource ? `By ${appState.ocrSource}` : '';
             dom.outputSection.classList.remove('hidden');
